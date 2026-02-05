@@ -27,21 +27,28 @@ logger = logging.getLogger(__name__)
 
 # Force UTF-8 encoding for stdout/stderr on Windows
 if sys.platform.startswith('win'):
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except:
+        pass
 
-# Import database - try Supabase first, fall back to Firebase
-try:
-    from .database_supabase import init_db, get_db
-    logger.info("[DB] Using Supabase PostgreSQL")
-except ImportError:
-    from .database import init_db
-    logger.info("[DB] Using Firebase Firestore")
+# Import database - use Supabase (production)
+from .database_supabase import init_db, get_db
+logger.info("[DB] Using Supabase PostgreSQL")
 
-from .routes import agent, tasks, memory, plugins, task_agent
+from .routes import agent, plugins, task_agent
 from .core.agent import AgentManager
 from .core.ai_providers import get_ai_router
 from .core.realtime import get_connection_manager, websocket_endpoint
+
+# Import routes with fallback
+try:
+    from .routes import tasks, memory
+except ImportError as e:
+    logger.warning(f"[ROUTES] Some routes not available: {e}")
+    tasks = None
+    memory = None
 
 load_dotenv()
 
@@ -129,7 +136,9 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001", 
         "http://localhost:5173",
-        os.getenv("FRONTEND_URL", "http://localhost:3000")
+        os.getenv("FRONTEND_URL", "*"),
+        "https://frontend-snowy-chi-2d9q9syghe.vercel.app",
+        "https://*.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -139,8 +148,10 @@ app.add_middleware(
 # Include routers
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 app.include_router(task_agent.router, prefix="/api/task", tags=["task_agent"])
-app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
-app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
+if tasks:
+    app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
+if memory:
+    app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
 app.include_router(plugins.router, prefix="/api/plugins", tags=["plugins"])
 
 
