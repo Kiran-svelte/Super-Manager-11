@@ -1,0 +1,171 @@
+# =============================================================================
+# Super Manager - Docker Compose Configuration
+# Complete stack: Backend, Frontend, Database, Ollama, Monitoring
+# =============================================================================
+
+version: '3.9'
+
+services:
+  # ===== Main Application =====
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: supermanager-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - ZUKI_API_KEY=${ZUKI_API_KEY}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - SMTP_EMAIL=${SMTP_EMAIL}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - supermanager-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===== Frontend (Nginx) =====
+  frontend:
+    image: nginx:alpine
+    container_name: supermanager-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+      - "443:443"
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./infrastructure/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    networks:
+      - supermanager-network
+
+  # ===== Ollama (Local LLM) =====
+  ollama:
+    image: ollama/ollama:latest
+    container_name: supermanager-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - supermanager-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # ===== Ollama Model Puller (Init container) =====
+  ollama-init:
+    image: curlimages/curl:latest
+    container_name: supermanager-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        echo 'Pulling Llama 3.2 model...' &&
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"llama3.2\"}' &&
+        echo 'Model pulled successfully!'
+      "
+    networks:
+      - supermanager-network
+
+  # ===== Redis (Caching & Rate Limiting) =====
+  redis:
+    image: redis:7-alpine
+    container_name: supermanager-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - supermanager-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ===== Prometheus (Metrics) =====
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: supermanager-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - supermanager-network
+
+  # ===== Grafana (Dashboards) =====
+  grafana:
+    image: grafana/grafana:latest
+    container_name: supermanager-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - supermanager-network
+
+# ===== Networks =====
+networks:
+  supermanager-network:
+    driver: bridge
+
+# ===== Volumes =====
+volumes:
+  ollama-data:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

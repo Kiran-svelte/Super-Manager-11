@@ -1,0 +1,29 @@
+{
+  "session_id": "21cb8e20-d1b4-4950-aefd-cac686a0a9d5",
+  "data": {
+    "session_id": "21cb8e20-d1b4-4950-aefd-cac686a0a9d5",
+    "initial_intent": {
+      "type": "general",
+      "confidence": "low",
+      "entities": {},
+      "original_input": "Send an email to test@example.com saying hello"
+    },
+    "stages": [
+      {
+        "id": "a31482a5-e8bf-4515-ab56-4c434dc87566",
+        "stage_type": "final_confirmation",
+        "data": {
+          "question": "I understood: 'Send an email to test@example.com saying hello'. Confirm action:",
+          "type": "confirmation"
+        },
+        "completed": false,
+        "created_at": "2026-02-05T17:11:13.020163"
+      }
+    ],
+    "context": {},
+    "current_stage_index": 0,
+    "created_at": "2026-02-05T17:11:12.249550"
+  },
+  "created_at": "2026-02-05T17:11:13.020163",
+  "expires_at": "2026-02-05T19:11:13.020163"
+}
