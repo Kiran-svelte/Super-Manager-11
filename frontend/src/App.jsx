@@ -4,7 +4,7 @@ import { Send, Loader, CheckCircle, XCircle, Clock, Check, X, MapPin, Hotel, Act
 import './App.css'
 import './App_ai.css'
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com/api'
 
 function App() {
   const [message, setMessage] = useState('')
