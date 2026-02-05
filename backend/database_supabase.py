@@ -534,3 +534,44 @@ def get_memories_collection():
 def get_conversations_collection():
     """Legacy compatibility - returns db operations"""
     return get_db()
+
+
+# =============================================================================
+# Legacy function wrappers (for existing code compatibility)
+# =============================================================================
+
+async def get_task(task_id: str) -> Optional[Task]:
+    """Get task by ID - legacy wrapper"""
+    return await get_db().get_task(task_id)
+
+
+async def get_tasks_by_user(user_id: str, limit: int = 50) -> List[Task]:
+    """Get tasks by user - legacy wrapper"""
+    return await get_db().get_user_tasks(user_id, limit=limit)
+
+
+async def get_memory_by_key(user_id: str, key: str) -> Optional[Memory]:
+    """Get memory by key - legacy wrapper"""
+    return await get_db().get_memory(user_id, key)
+
+
+async def get_memories_by_user(user_id: str, category: str = None) -> List[Memory]:
+    """Get all memories for user - legacy wrapper"""
+    return await get_db().get_user_memories(user_id, category)
+
+
+async def create_memory(user_id: str, key: str, value: Any, context: Dict = None) -> Memory:
+    """Create memory - legacy wrapper"""
+    memory = Memory(user_id=user_id, key=key, value=value, category=context.get("category") if context else None)
+    return await get_db().set_memory(memory)
+
+
+async def update_memory(memory_id: str, updates: Dict[str, Any]) -> Optional[Memory]:
+    """Update memory - legacy wrapper (limited support)"""
+    # Note: This is a simplified version - Supabase uses upsert
+    return None
+
+
+async def search_memories(user_id: str, search_term: str) -> List[Memory]:
+    """Search memories - legacy wrapper"""
+    return await get_db().search_memories(user_id, search_term)

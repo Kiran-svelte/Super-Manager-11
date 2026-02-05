@@ -5,7 +5,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
-from ..database import get_task, get_tasks_by_user, Task
+# Try Supabase first, fall back to Firebase
+try:
+    from ..database_supabase import get_task, get_tasks_by_user, Task
+except ImportError:
+    from ..database import get_task, get_tasks_by_user, Task
 
 router = APIRouter()
 
