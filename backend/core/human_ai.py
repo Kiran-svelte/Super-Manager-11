@@ -18,6 +18,10 @@ import httpx
 import asyncio
 from typing import Dict, Any, List, Optional, Union, Tuple
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -260,8 +264,10 @@ class GroqFreeClient:
     def __init__(self):
         self.api_key = os.getenv("GROQ_API_KEY", "")
         self.base_url = "https://api.groq.com/openai/v1"
-        self.model = "llama-3.3-70b-versatile"  # Free tier model
+        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")  # Free tier model
         self.fallback_model = "llama3-8b-8192"  # Smaller fallback
+        print(f"[GROQ_CLIENT] API Key: {self.api_key[:20] if self.api_key else 'NOT SET'}...")
+        print(f"[GROQ_CLIENT] Model: {self.model}")
         
     async def generate(
         self,

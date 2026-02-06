@@ -1,7 +1,7 @@
-\"\"\"
+"""
 SELF-HEALING AI CONVERSATION MANAGER
 BACKWARD COMPATIBLE WRAPPER - Now uses human_ai.py for truly human-like responses
-\"\"\"
+"""
 # Redirect all imports to the human AI module
 from .human_ai import (
     HumanAIManager,

@@ -1,7 +1,7 @@
-\"\"\"
+"""
 INTELLIGENT AI MANAGER
 Wrapper module - now redirects to human_ai.py for truly human-like responses
-\"\"\"
+"""
 # Redirect all imports to the new human AI module
 from .human_ai import (
     HumanAIManager, 
