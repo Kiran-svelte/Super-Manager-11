@@ -198,7 +198,7 @@ class PluginManager:
     def _register_default_plugins(self):
         """Register default plugins"""
         from .browser_meeting_plugin import BrowserMeetingPlugin
-        from .real_email_plugin import RealEmailPlugin
+        from .gmail_oauth_plugin import GmailOAuthPlugin  # Production-grade Gmail OAuth
         from .whatsapp_plugin import WhatsAppPlugin
         from .phone_booking_plugin import PhoneCallPlugin, BookingPlugin
         from .zoom_real_plugin import ZoomMeetingPlugin
@@ -207,7 +207,7 @@ class PluginManager:
         default_plugins = [
             GeneralPlugin(),
             CalendarPlugin(),
-            RealEmailPlugin(),
+            GmailOAuthPlugin(),  # Gmail OAuth 2.0 instead of basic SMTP
             SearchPlugin(),
             ZoomMeetingPlugin(),
             BrowserMeetingPlugin(),
