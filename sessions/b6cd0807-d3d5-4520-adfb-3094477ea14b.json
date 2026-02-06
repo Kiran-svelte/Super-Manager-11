@@ -1,0 +1,29 @@
+{
+  "session_id": "b6cd0807-d3d5-4520-adfb-3094477ea14b",
+  "data": {
+    "session_id": "b6cd0807-d3d5-4520-adfb-3094477ea14b",
+    "initial_intent": {
+      "type": "general",
+      "confidence": "low",
+      "entities": {},
+      "original_input": "Hello, how are you?"
+    },
+    "stages": [
+      {
+        "id": "b5539308-a762-4a9d-aaf1-1f46c21720be",
+        "stage_type": "final_confirmation",
+        "data": {
+          "question": "I understood: 'Hello, how are you?'. Confirm action:",
+          "type": "confirmation"
+        },
+        "completed": false,
+        "created_at": "2026-02-06T01:13:58.002449"
+      }
+    ],
+    "context": {},
+    "current_stage_index": 0,
+    "created_at": "2026-02-06T01:13:57.616424"
+  },
+  "created_at": "2026-02-06T01:13:58.002449",
+  "expires_at": "2026-02-06T03:13:58.002449"
+}

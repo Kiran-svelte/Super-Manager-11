@@ -1,0 +1,29 @@
+{
+  "session_id": "71d75d3e-8e14-450e-8fe7-59f69ebf2faa",
+  "data": {
+    "session_id": "71d75d3e-8e14-450e-8fe7-59f69ebf2faa",
+    "initial_intent": {
+      "type": "general",
+      "confidence": "low",
+      "entities": {},
+      "original_input": "Hello!"
+    },
+    "stages": [
+      {
+        "id": "d0fdd988-127d-4d8b-a9f6-0f0c58158bd2",
+        "stage_type": "final_confirmation",
+        "data": {
+          "question": "I understood: 'Hello!'. Confirm action:",
+          "type": "confirmation"
+        },
+        "completed": false,
+        "created_at": "2026-02-06T01:16:11.484300"
+      }
+    ],
+    "context": {},
+    "current_stage_index": 0,
+    "created_at": "2026-02-06T01:16:10.724445"
+  },
+  "created_at": "2026-02-06T01:16:11.484300",
+  "expires_at": "2026-02-06T03:16:11.484300"
+}

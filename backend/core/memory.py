@@ -5,17 +5,10 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
 
-# Try Supabase first, fall back to Firebase
-try:
-    from ..database_supabase import (
-        get_memory_by_key, get_memories_by_user, create_memory, 
-        update_memory, search_memories as db_search_memories, Memory
-    )
-except ImportError:
-    from ..database import (
-        get_memory_by_key, get_memories_by_user, create_memory, 
-        update_memory, search_memories as db_search_memories, Memory
-    )
+from ..database_supabase import (
+    get_memory_by_key, get_memories_by_user, create_memory, 
+    update_memory, search_memories as db_search_memories, Memory
+)
 
 class MemoryManager:
     """Manages user memory and personalization"""

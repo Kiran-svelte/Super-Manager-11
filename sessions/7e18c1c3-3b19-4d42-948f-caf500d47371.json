@@ -1,0 +1,29 @@
+{
+  "session_id": "7e18c1c3-3b19-4d42-948f-caf500d47371",
+  "data": {
+    "session_id": "7e18c1c3-3b19-4d42-948f-caf500d47371",
+    "initial_intent": {
+      "type": "general",
+      "confidence": "low",
+      "entities": {},
+      "original_input": "<img src=x onerror=alert(1)>"
+    },
+    "stages": [
+      {
+        "id": "df42393f-007d-48da-b1c4-7929fac4650d",
+        "stage_type": "final_confirmation",
+        "data": {
+          "question": "I understood: '<img src=x onerror=alert(1)>'. Confirm action:",
+          "type": "confirmation"
+        },
+        "completed": false,
+        "created_at": "2026-02-06T01:16:14.489119"
+      }
+    ],
+    "context": {},
+    "current_stage_index": 0,
+    "created_at": "2026-02-06T01:16:14.186153"
+  },
+  "created_at": "2026-02-06T01:16:14.489119",
+  "expires_at": "2026-02-06T03:16:14.489119"
+}

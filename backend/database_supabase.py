@@ -575,3 +575,12 @@ async def update_memory(memory_id: str, updates: Dict[str, Any]) -> Optional[Mem
 async def search_memories(user_id: str, search_term: str) -> List[Memory]:
     """Search memories - legacy wrapper"""
     return await get_db().search_memories(user_id, search_term)
+
+
+async def create_task(user_id: str = None, intent: str = None, task: Task = None) -> Task:
+    """Create task - legacy wrapper supporting both old and new signatures"""
+    if task is not None:
+        return await get_db().create_task(task)
+    else:
+        new_task = Task(user_id=user_id or "default", intent=intent or "")
+        return await get_db().create_task(new_task)

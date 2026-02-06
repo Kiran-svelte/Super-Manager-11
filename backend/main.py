@@ -37,18 +37,10 @@ if sys.platform.startswith('win'):
 from .database_supabase import init_db, get_db
 logger.info("[DB] Using Supabase PostgreSQL")
 
-from .routes import agent, plugins, task_agent
+from .routes import agent, plugins, task_agent, tasks, memory
 from .core.agent import AgentManager
 from .core.ai_providers import get_ai_router
 from .core.realtime import get_connection_manager, websocket_endpoint
-
-# Import routes with fallback
-try:
-    from .routes import tasks, memory
-except ImportError as e:
-    logger.warning(f"[ROUTES] Some routes not available: {e}")
-    tasks = None
-    memory = None
 
 load_dotenv()
 
@@ -148,10 +140,8 @@ app.add_middleware(
 # Include routers
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 app.include_router(task_agent.router, prefix="/api/task", tags=["task_agent"])
-if tasks:
-    app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
-if memory:
-    app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
+app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
 app.include_router(plugins.router, prefix="/api/plugins", tags=["plugins"])
 
 

@@ -1,0 +1,29 @@
+{
+  "session_id": "8305721c-4f14-4703-b4ce-843dc4796e86",
+  "data": {
+    "session_id": "8305721c-4f14-4703-b4ce-843dc4796e86",
+    "initial_intent": {
+      "type": "general",
+      "confidence": "low",
+      "entities": {},
+      "original_input": "<script>alert('xss')</script>"
+    },
+    "stages": [
+      {
+        "id": "d3e5cdd0-b211-4450-ad54-669fa60e019f",
+        "stage_type": "final_confirmation",
+        "data": {
+          "question": "I understood: '<script>alert('xss')</script>'. Confirm action:",
+          "type": "confirmation"
+        },
+        "completed": false,
+        "created_at": "2026-02-06T01:15:49.891359"
+      }
+    ],
+    "context": {},
+    "current_stage_index": 0,
+    "created_at": "2026-02-06T01:15:49.132822"
+  },
+  "created_at": "2026-02-06T01:15:49.891359",
+  "expires_at": "2026-02-06T03:15:49.891359"
+}

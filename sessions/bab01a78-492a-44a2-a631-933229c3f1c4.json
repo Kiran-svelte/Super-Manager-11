@@ -1,0 +1,29 @@
+{
+  "session_id": "bab01a78-492a-44a2-a631-933229c3f1c4",
+  "data": {
+    "session_id": "bab01a78-492a-44a2-a631-933229c3f1c4",
+    "initial_intent": {
+      "type": "general",
+      "confidence": "low",
+      "entities": {},
+      "original_input": "'; DELETE FROM tasks WHERE '1'='1"
+    },
+    "stages": [
+      {
+        "id": "60079d40-9455-4621-be34-78b457c04854",
+        "stage_type": "final_confirmation",
+        "data": {
+          "question": "I understood: ''; DELETE FROM tasks WHERE '1'='1'. Confirm action:",
+          "type": "confirmation"
+        },
+        "completed": false,
+        "created_at": "2026-02-06T01:14:03.101286"
+      }
+    ],
+    "context": {},
+    "current_stage_index": 0,
+    "created_at": "2026-02-06T01:14:02.828500"
+  },
+  "created_at": "2026-02-06T01:14:03.101286",
+  "expires_at": "2026-02-06T03:14:03.101286"
+}

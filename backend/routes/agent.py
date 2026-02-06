@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import uuid
 
-from ..database import get_db, Task, create_task
+from ..database_supabase import get_db, Task, create_task
 from ..core.agent import AgentManager
 from ..core.intent_parser import IntentParser
 from ..core.task_planner import TaskPlanner
