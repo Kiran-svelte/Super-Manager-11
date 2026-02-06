@@ -176,11 +176,10 @@ Only include fields that are mentioned."""
         "info": session["collected_info"]
     }
     
-    # Return confirmation request
-    confirmation_msg = f"Ready to {task.description}:\n"
-    for action in plan["actions"]:
-        confirmation_msg += f"• {action['description']}\n"
-    confirmation_msg += "\nConfirm?"
+    # Generate human-like confirmation message
+    from ..core.human_ai import generate_human_confirmation_message
+    actions_list = [{"description": action['description']} for action in plan.get("actions", [])]
+    confirmation_msg = generate_human_confirmation_message(task.description, actions_list)
     
     return AgentResponse(
         response=confirmation_msg,

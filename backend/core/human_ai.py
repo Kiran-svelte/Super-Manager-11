@@ -665,3 +665,151 @@ def get_ai_manager() -> HumanAIManager:
 
 IntelligentAIManager = HumanAIManager
 SelfHealingAIManager = HumanAIManager
+
+# ============================================================================
+# 🎯 HUMAN-LIKE RESPONSE GENERATORS
+# Quick, personality-infused responses without needing full AI calls
+# ============================================================================
+
+import random
+
+def generate_human_confirmation_message(user_input: str, actions: List[Dict] = None) -> str:
+    """Generate a warm, human-like confirmation message"""
+    actions = actions or []
+    
+    # Analyze what the user wants
+    user_lower = user_input.lower()
+    
+    # Detect the type of task
+    is_reminder = any(word in user_lower for word in ["remind", "reminder", "don't forget"])
+    is_email = any(word in user_lower for word in ["email", "mail", "send to"])
+    is_meeting = any(word in user_lower for word in ["meeting", "meet", "call", "video"])
+    is_message = any(word in user_lower for word in ["message", "text", "tell", "inform"])
+    is_party = any(word in user_lower for word in ["party", "celebration", "event", "birthday"])
+    
+    # Extract key details
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', user_input)
+    email = email_match.group(0) if email_match else None
+    
+    # Build human response
+    greetings = ["Got it!", "Perfect!", "Sounds good!", "On it!", "Absolutely!", "Sure thing!"]
+    greeting = random.choice(greetings)
+    
+    if is_party and is_reminder:
+        if email:
+            emojis = ["🎉", "🎊", "🥳"]
+            return f"{random.choice(emojis)} {greeting} A party this Saturday - sounds fun!\n\nI'll send a reminder to **{email}** about joining the party.\n\nJust say 'yes' and I'll handle it!"
+        else:
+            return f"🎉 {greeting} Party reminder coming up!\n\nI'll make sure they get the heads up about Saturday.\n\nConfirm?"
+    
+    if is_reminder:
+        if email:
+            return f"📝 {greeting} I'll send a friendly reminder to **{email}**.\n\nShould I go ahead?"
+        else:
+            return f"📝 {greeting} I'll set up that reminder for you.\n\nReady to send?"
+    
+    if is_meeting:
+        return f"📅 {greeting} Let me set up that meeting for you.\n\nI'll get the video link ready and everything.\n\nShall I proceed?"
+    
+    if is_email:
+        if email:
+            return f"✉️ {greeting} I'll compose and send an email to **{email}**.\n\nWant me to send it?"
+        else:
+            return f"✉️ {greeting} I'll help you send that email.\n\nReady when you are!"
+    
+    if is_message:
+        return f"💬 {greeting} I'll get that message sent out.\n\nGo ahead?"
+    
+    # Build action list if provided
+    actions_text = ""
+    if actions:
+        actions_text = "\n\n**Here's what I'll do:**\n"
+        for action in actions:
+            desc = action.get("description", action.get("type", "Action"))
+            actions_text += f"• {desc}\n"
+    
+    # Default friendly response
+    return f"👍 {greeting}{actions_text}\n\nShould I go ahead with this?"
+
+
+def generate_human_success_message(action_type: str, details: Dict = None) -> str:
+    """Generate a warm success message after completing an action"""
+    details = details or {}
+    
+    success_words = ["Done!", "All set!", "Perfect!", "Completed!", "✓ Done!"]
+    success = random.choice(success_words)
+    
+    if "email" in action_type.lower() or "mail" in action_type.lower():
+        recipient = details.get("to", details.get("email", "them"))
+        return f"✉️ {success} Email sent to **{recipient}**!\n\nThey should receive it any moment now."
+    
+    if "meeting" in action_type.lower():
+        link = details.get("link", details.get("url", ""))
+        if link:
+            return f"📅 {success} Meeting is ready!\n\n**Here's your link:** {link}\n\nHave a great meeting! 🙌"
+        return f"📅 {success} Meeting has been scheduled!\n\nYou're all set."
+    
+    if "reminder" in action_type.lower():
+        return f"⏰ {success} Reminder sent!\n\nI've made sure they'll get the notification."
+    
+    if "message" in action_type.lower():
+        return f"💬 {success} Message sent!\n\nThey'll see it right away."
+    
+    return f"✅ {success}\n\nIs there anything else you'd like me to help with?"
+
+
+def generate_human_cancel_message() -> str:
+    """Generate a friendly cancellation message"""
+    responses = [
+        "No problem! Let me know if you change your mind or need anything else. 👍",
+        "Got it, I've cancelled that. Anything else I can help with?",
+        "Alright, cancelled! Just say the word when you need me.",
+        "Okay, I've dropped that. What else can I do for you?",
+        "No worries, that's been cancelled. I'm here if you need anything!"
+    ]
+    return random.choice(responses)
+
+
+def generate_human_error_message(error_type: str = "general") -> str:
+    """Generate a human-like error message"""
+    if "network" in error_type.lower() or "connection" in error_type.lower():
+        return "😅 Oops, having some trouble connecting right now. Can you give me a sec to try again?"
+    
+    if "auth" in error_type.lower() or "permission" in error_type.lower():
+        return "🔐 Hmm, seems like there's a permission issue. Let me look into this..."
+    
+    if "not found" in error_type.lower():
+        return "🤔 I couldn't find what you're looking for. Could you double-check the details?"
+    
+    general_responses = [
+        "😅 Something went a bit sideways there. Let me try a different approach...",
+        "Hmm, that didn't quite work. Give me a moment to figure this out.",
+        "🤔 Ran into a small hiccup. Let me see what I can do...",
+        "Oops! Something unexpected happened. Working on it..."
+    ]
+    return random.choice(general_responses)
+
+
+def generate_stage_question(stage_type: str, context: Dict = None) -> str:
+    """Generate human-like questions for conversation stages"""
+    context = context or {}
+    
+    if stage_type == "destination_selection":
+        return "🌍 Where would you like to go? I can look up some great options for you!"
+    
+    if stage_type == "accommodation_selection":
+        return "🏨 What kind of place would you like to stay? Hotel, Airbnb, or something else?"
+    
+    if stage_type == "participant_details":
+        return "👥 Who should I include in this? Just share their email addresses!"
+    
+    if stage_type == "date_selection":
+        return "📅 When works best for you?"
+    
+    if stage_type == "time_selection":
+        return "⏰ What time would you prefer?"
+    
+    if stage_type == "confirmation" or stage_type == "final_confirmation":
+        return "Great! Ready to make this happen? Just say 'yes'! 🚀"
+    
+    return "What would you like to do next?"

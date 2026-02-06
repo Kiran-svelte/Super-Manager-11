@@ -95,15 +95,13 @@ class ConfirmationManager:
             return action
 
     def _generate_confirmation_message(self, actions: List[PendingAction], user_input: str) -> str:
-        """Generate a natural language confirmation message"""
-        if not actions:
-            return "I understand your request, but I'm not sure what actions to take. Could you clarify?"
-        message = f"I understand you want to: {user_input}\n\n"
-        message += "To complete this, I'll need to:\n\n"
-        for i, action in enumerate(actions, 1):
-            message += f"{i}. {action.description}\n"
-        message += "\nShould I proceed with these actions?"
-        return message
+        """Generate a human-like confirmation message"""
+        from .human_ai import generate_human_confirmation_message
+        
+        # Convert actions to simple dict format for the generator
+        actions_list = [{"description": action.description, "type": action.action_type} for action in actions] if actions else []
+        
+        return generate_human_confirmation_message(user_input, actions_list)
 
     def get_pending_actions(self, session_id: str) -> Optional[List[Dict[str, Any]]]:
         """Get pending actions for a session"""

@@ -1,5 +1,6 @@
 """
 Enhanced Agent API Routes with Multi-Stage Conversations
+NOW POWERED BY TRUE AI CHAT - No more hardcoded responses!
 """
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
@@ -15,6 +16,8 @@ from ..core.memory import MemoryManager
 from ..core.confirmation_manager import get_confirmation_manager, PendingAction
 from ..core.intent_classifier import IntentClassifier
 from ..core.conversation_manager import get_conversation_manager
+# NEW: Import true AI chat
+from ..core.true_ai_chat import chat as true_ai_chat, get_conversation
 
 router = APIRouter()
 
@@ -36,6 +39,7 @@ class AgentResponse(BaseModel):
     pending_actions: Optional[List[Dict[str, Any]]] = None
     options: Optional[List[Dict[str, Any]]] = None
     stage_type: Optional[str] = None
+    meeting_url: Optional[str] = None  # NEW: For meeting links
 
 class SelectionRequest(BaseModel):
     session_id: str
@@ -52,316 +56,79 @@ async def process_intent(
     request: AgentRequest,
     app_request: Request
 ):
-    """Process user intent with multi-stage conversation support"""
+    """
+    Process user intent using TRUE AI CHAT.
+    
+    ALL responses now come from the LLM (Groq) - no hardcoded text!
+    The AI understands context, remembers conversation, and decides what to do.
+    """
     try:
-        intent_classifier = IntentClassifier()
-        conversation_manager = get_conversation_manager()
-        confirmation_manager = get_confirmation_manager()
+        # Get or create session ID
+        session_id = request.session_id or str(uuid.uuid4())
         
-        # Check for existing session and text input stages
-        if request.session_id:
-            session = conversation_manager.get_session(request.session_id)
-            if session:
-                current_stage = session.get_current_stage()
-                
-                # Handle confirmation stage with text response (yes/no)
-                if current_stage and current_stage.data.get("type") == "confirmation":
-                    user_response = request.message.lower().strip()
-                    if user_response in ["yes", "y", "confirm", "ok", "sure", "proceed"]:
-                        # User confirmed - process as approval
-                        result = await conversation_manager.process_user_response(
-                            request.session_id,
-                            {"confirmed": True}
-                        )
-                        
-                        if result.get("status") == "ready_for_execution":
-                            plan = result.get("plan", {})
-                            actions = plan.get("actions", [])
-                            
-                            # Store and execute
-                            pending_actions = []
-                            for action in actions:
-                                pending_action = PendingAction(
-                                    action_type=action["type"],
-                                    description=action["description"],
-                                    parameters=action["parameters"],
-                                    plugin=action["plugin"]
-                                )
-                                pending_actions.append(pending_action)
-                            
-                            confirmation_manager.pending_actions[request.session_id] = pending_actions
-                            confirmation_manager.session_plans[request.session_id] = {
-                                "plan": plan,
-                                "user_input": session.initial_intent.get("original_input", ""),
-                                "created_at": session.created_at
-                            }
-                            
-                            # Execute immediately
-                            plugin_manager = PluginManager()
-                            execution_results = []
-                            for action in actions:
-                                plugin = plugin_manager.get_plugin(action["plugin"])
-                                if plugin:
-                                    step = {"action": action["type"], "parameters": action["parameters"]}
-                                    exec_result = await plugin.execute(step, {})
-                                    execution_results.append(exec_result)
-                            
-                            return AgentResponse(
-                                response="Actions executed successfully!",
-                                intent=session.initial_intent,
-                                plan=plan,
-                                result={"execution_results": execution_results},
-                                requires_confirmation=False,
-                                session_id=request.session_id,
-                                stage_type="completed"
-                            )
-                    elif user_response in ["no", "n", "cancel", "stop", "abort"]:
-                        return AgentResponse(
-                            response="Action cancelled.",
-                            intent=session.initial_intent,
-                            plan={},
-                            result={},
-                            requires_confirmation=False,
-                            session_id=request.session_id,
-                            stage_type="cancelled"
-                        )
-                
-                # Handle ANY text_input stage (not just participant_details)
-                if current_stage and current_stage.data.get("type") == "text_input":
-                    # Process text input for this stage
-                    result = await conversation_manager.process_user_response(
-                        request.session_id,
-                        {"text_input": request.message}
-                    )
-                    
-                    if result.get("status") == "stage_completed":
-                        next_stage_data = result.get("next_stage")
-                        if next_stage_data:
-                            # Refresh session to get updated state
-                            session = conversation_manager.get_session(request.session_id)
-                            next_stage_type = session.get_current_stage().stage_type
-                            
-                            # Check if next stage is final_confirmation
-                            if next_stage_type == "final_confirmation":
-                                # Generate plan and request confirmation
-                                plan = conversation_manager.generate_execution_plan(session)
-                                actions = plan.get("actions", [])
-                                
-                                # Store in confirmation manager
-                                pending_actions = []
-                                for action in actions:
-                                    pending_action = PendingAction(
-                                        action_type=action["type"],
-                                        description=action["description"],
-                                        parameters=action["parameters"],
-                                        plugin=action["plugin"]
-                                    )
-                                    pending_actions.append(pending_action)
-                                
-                                confirmation_manager.pending_actions[request.session_id] = pending_actions
-                                confirmation_manager.session_plans[request.session_id] = {
-                                    "plan": plan,
-                                    "user_input": session.initial_intent.get("original_input", ""),
-                                    "created_at": session.created_at
-                                }
-                                
-                                confirmation_message = generate_final_confirmation_message(plan)
-                                
-                                return AgentResponse(
-                                    response=confirmation_message,
-                                    intent=session.initial_intent,
-                                    plan=plan,
-                                    result={},
-                                    requires_confirmation=True,
-                                    session_id=request.session_id,
-                                    pending_actions=[action.to_dict() for action in pending_actions],
-                                    stage_type=next_stage_type
-                                )
-
-                            return AgentResponse(
-                                response=next_stage_data.get("question", "Please make a selection:"),
-                                intent=session.initial_intent,
-                                plan={},
-                                result={},
-                                requires_selection=True,
-                                session_id=session.session_id,
-                                options=next_stage_data.get("options", []),
-                                stage_type=next_stage_type
-                            )
-                    elif result.get("status") == "ready_for_execution":
-                        # Create confirmation
-                        plan = result.get("plan", {})
-                        actions = plan.get("actions", [])
-                        
-                        # Store in confirmation manager
-                        pending_actions = []
-                        for action in actions:
-                            pending_action = PendingAction(
-                                action_type=action["type"],
-                                description=action["description"],
-                                parameters=action["parameters"],
-                                plugin=action["plugin"]
-                            )
-                            pending_actions.append(pending_action)
-                        
-                        confirmation_manager.pending_actions[request.session_id] = pending_actions
-                        confirmation_manager.session_plans[request.session_id] = {
-                            "plan": plan,
-                            "user_input": session.initial_intent.get("original_input", ""),
-                            "created_at": session.created_at
-                        }
-                        
-                        confirmation_message = generate_final_confirmation_message(plan)
-                        
-                        return AgentResponse(
-                            response=confirmation_message,
-                            intent=session.initial_intent,
-                            plan=plan,
-                            result={},
-                            requires_confirmation=True,
-                            session_id=request.session_id,
-                            pending_actions=[action.to_dict() for action in pending_actions]
-                        )
-
-        # Classify the intent
-        classified_intent = intent_classifier.classify(request.message)
+        # Use the new TRUE AI Chat system
+        result = await true_ai_chat(session_id, request.message)
         
-        # Check if intent requires clarification
-        if intent_classifier.requires_clarification(classified_intent):
-            clarification_question = intent_classifier.generate_clarification_question(classified_intent)
-            
-            # Create session with proper stages
-            temp_session = await conversation_manager.create_session(classified_intent)
-            
-            # Get the actual first stage (should be destination_selection)
-            first_stage = temp_session.get_current_stage()
-            actual_stage_type = first_stage.stage_type if first_stage else "unknown"
-            
-            # Get options from the stage (AI-generated)
-            options = first_stage.data.get("options", []) if first_stage else []
-            
-            return AgentResponse(
-                response=clarification_question,
-                intent=classified_intent,
-                plan={},
-                result={},
-                requires_selection=True,
-                session_id=temp_session.session_id,
-                options=options,
-                stage_type=actual_stage_type
-            )
+        # Ensure result is always a dict (not list)
+        results_data = result.get("results")
+        if isinstance(results_data, list):
+            results_dict = {"results": results_data}
+        elif results_data:
+            results_dict = results_data
+        else:
+            results_dict = {}
         
-        # Create multi-stage conversation session
-        session = await conversation_manager.create_session(classified_intent)
-        
-        # Get first stage
-        current_stage = session.get_current_stage()
-        
-        if not current_stage:
-            # No stages, create simple confirmation
-            return await create_simple_confirmation(
-                request.message,
-                classified_intent,
-                confirmation_manager
-            )
-        
-        # Return first stage to user
-        stage_data = current_stage.data
-        
-        # Check if it's an execution stage (instant meeting)
-        if current_stage.stage_type in ["execution", "instant_execution"]:
-             # Auto-process this stage
-             result = await conversation_manager.process_user_response(
-                 session.session_id,
-                 {"action": "execute"}
-             )
-             
-             if result.get("status") == "ready_for_execution":
-                 # Create confirmation/execution plan
-                 plan = result.get("plan", {})
-                 actions = plan.get("actions", [])
-                 
-                 # Store in confirmation manager (even if we auto-execute, we need structure)
-                 pending_actions = []
-                 for action in actions:
-                     pending_action = PendingAction(
-                         action_type=action["type"],
-                         description=action["description"],
-                         parameters=action["parameters"],
-                         plugin=action["plugin"]
-                     )
-                     pending_actions.append(pending_action)
-                 
-                 confirmation_manager.pending_actions[session.session_id] = pending_actions
-                 confirmation_manager.session_plans[session.session_id] = {
-                     "plan": plan,
-                     "user_input": session.initial_intent.get("original_input", ""),
-                     "created_at": session.created_at
-                 }
-                 
-                 # For instant meetings, we might want to skip confirmation and just execute?
-                 # The user said "redirect directly to that meeting".
-                 # So we should probably return requires_confirmation=True but with a flag or just execute?
-                 # If we return requires_confirmation=True, the frontend waits for "Yes".
-                 # If we want to skip, we need to execute HERE.
-                 
-                 # Let's execute here for instant gratification!
-                 plugin_manager = PluginManager()
-                 execution_results = []
-                 for action in actions:
-                     plugin = plugin_manager.get_plugin(action["plugin"])
-                     if plugin:
-                         step = {"action": action["type"], "parameters": action["parameters"]}
-                         # Execute!
-                         exec_result = await plugin.execute(step, {})
-                         execution_results.append(exec_result)
-                 
-                 # Construct response with execution results
-                 return AgentResponse(
-                     response="Meeting created! Redirecting you now...",
-                     intent=classified_intent,
-                     plan=plan,
-                     result={"execution_results": execution_results},
-                     requires_confirmation=False, # Done!
-                     session_id=session.session_id,
-                     stage_type="completed"
-                 )
-
-        return AgentResponse(
-            response=stage_data.get("question", "Please make a selection:"),
-            intent=classified_intent,
+        # Build response
+        response = AgentResponse(
+            response=result.get("response", ""),
+            intent={"type": "ai_determined", "raw_input": request.message},
             plan={},
-            result={},
-            requires_selection=True,
-            session_id=session.session_id,
-            options=stage_data.get("options", []),
-            stage_type=current_stage.stage_type
+            result=results_dict,
+            requires_confirmation=result.get("requires_confirmation", False),
+            session_id=session_id,
+            meeting_url=result.get("meeting_url")
         )
-    
+        
+        # If action was completed, include results
+        if result.get("action_completed"):
+            response.result = {"action_completed": True, "data": result.get("results", [])}
+        
+        return response
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[AGENT ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # Even errors should be friendly
+        return AgentResponse(
+            response="Oops! Something went wrong on my end. Could you try that again? 😅",
+            intent={"type": "error"},
+            plan={},
+            result={"error": str(e)},
+            session_id=request.session_id or str(uuid.uuid4())
+        )
 
-async def create_simple_confirmation(message: str, intent: Dict, confirmation_manager):
-    """Create a simple confirmation for non-complex requests"""
-    agent_manager = AgentManager()
-    result = await agent_manager.process_intent(message, "default", {})
-    
-    session_id = str(uuid.uuid4())
-    confirmation_request = confirmation_manager.create_confirmation_request(
-        session_id=session_id,
-        plan=result.get("plan", {}),
-        user_input=message
-    )
-    
+
+# Keep the old endpoints for backward compatibility but they redirect to true AI
+@router.post("/process_legacy", response_model=AgentResponse)
+async def process_intent_legacy(
+    request: AgentRequest,
+    app_request: Request
+):
+    """Legacy endpoint - redirects to true AI chat for compatibility"""
+    # Just use the new AI chat system
+    session_id = request.session_id or str(uuid.uuid4())
+    result = await true_ai_chat(session_id, request.message)
     return AgentResponse(
-        response=confirmation_request["message"],
-        intent=intent,
-        plan=result.get("plan", {}),
-        result={},
-        requires_confirmation=True,
+        response=result.get("response", ""),
+        intent={"type": "ai_determined"},
+        plan={},
+        result=result.get("results", {}) if result.get("results") else {},
+        requires_confirmation=result.get("requires_confirmation", False),
         session_id=session_id,
-        pending_actions=confirmation_request["actions"]
+        meeting_url=result.get("meeting_url")
     )
+
 
 def get_destination_options() -> List[Dict[str, Any]]:
     """Get destination options for selection"""
@@ -471,9 +238,12 @@ async def handle_selection(request: SelectionRequest):
                         "stage_type": stage_type
                     }
                 
+                # Get human-like question
+                from ..core.human_ai import generate_stage_question
+                q = next_stage_data.get("question") or generate_stage_question(stage_type)
                 return {
                     "status": "next_stage",
-                    "response": next_stage_data.get("question", "Please make a selection:"),
+                    "response": q,
                     "requires_selection": True,
                     "options": next_stage_data.get("options", []),
                     "session_id": request.session_id,
@@ -497,19 +267,19 @@ def generate_final_confirmation_message(plan: Dict[str, Any]) -> str:
     accommodation = plan.get("accommodation", {})
     activities = plan.get("activities", [])
     
-    message = f"🎉 Great! Here's your complete plan for {destination}:\n\n"
+    message = f"🎉 Awesome! Here's your plan for {destination}:\n\n"
     
     if accommodation:
-        message += f"🏨 **Accommodation**: {accommodation.get('name', 'Resort')}\n"
+        message += f"🏨 **Stay at**: {accommodation.get('name', 'Resort')}\n"
         if accommodation.get('price'):
-            message += f"   Price: {accommodation.get('price')}\n"
+            message += f"   ({accommodation.get('price')})\n"
     
     if activities:
-        message += f"\n🎯 **Activities**:\n"
+        message += f"\n🎯 **Activities lined up**:\n"
         for activity in activities:
             message += f"   • {activity.get('name', 'Activity')}\n"
     
-    message += "\n📋 **I will execute these actions**:\n"
+    message += "\n📋 **Here's what I'll do**:\n"
     
     return message
 

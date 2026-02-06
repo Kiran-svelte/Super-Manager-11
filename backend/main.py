@@ -59,7 +59,7 @@ if sys.platform.startswith('win'):
 from .database_supabase import init_db, get_db
 logger.info("[DB] Using Supabase PostgreSQL")
 
-from .routes import agent, plugins, task_agent, tasks, memory
+from .routes import agent, plugins, task_agent, tasks, memory, chat, autonomous, streaming
 from .core.agent import AgentManager
 from .core.ai_providers import get_ai_router
 from .core.realtime import get_connection_manager, websocket_endpoint
@@ -215,6 +215,10 @@ app.add_middleware(
 )
 
 # Include routers
+# NOTE: /api/stream/* is the REAL-TIME STREAMING endpoint - tokens appear instantly!
+app.include_router(streaming.router)  # Real-time streaming AI - THE MAIN ENDPOINT!
+app.include_router(autonomous.router)  # Autonomous AI (non-streaming)
+app.include_router(chat.router)  # Legacy chat endpoint
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 app.include_router(task_agent.router, prefix="/api/task", tags=["task_agent"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])

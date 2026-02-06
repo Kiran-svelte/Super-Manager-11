@@ -398,11 +398,14 @@ If it's a specific task not covered by other flows, try to structure it."""
             # This ensures that after the user provides the requested information,
             # the system will ask for confirmation and then execute the action
             if stage_type != "confirmation":
+                # Use human-like confirmation message
+                from .human_ai import generate_human_confirmation_message
+                human_question = generate_human_confirmation_message(user_input)
                 session.add_stage(
                     ConversationStage(
                         "final_confirmation",
                         {
-                            "question": "Confirm action:",
+                            "question": human_question,
                             "type": "confirmation",
                             "actions": ["execute_task"]
                         }
@@ -411,8 +414,11 @@ If it's a specific task not covered by other flows, try to structure it."""
             
         except Exception as e:
             print(f"[CONV_MANAGER] AI default stage generation failed: {e}")
-            # Fallback
-            session.add_stage(ConversationStage("final_confirmation", {"question": f"I understood: '{user_input}'. Confirm action:", "type": "confirmation"}))
+            # Fallback - still be human-like!
+            from .human_ai import generate_human_confirmation_message
+            human_fallback = generate_human_confirmation_message(user_input)
+            session.add_stage(ConversationStage("final_confirmation", {"question": human_fallback, "type": "confirmation"}))
+
 
     # ---------------------------------------------------------------------
     # Processing Logic
