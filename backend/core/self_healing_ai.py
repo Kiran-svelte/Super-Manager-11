@@ -1,12 +1,24 @@
-"""
+\"\"\"
 SELF-HEALING AI CONVERSATION MANAGER
-BACKWARD COMPATIBLE WRAPPER - Now uses intelligent_ai.py with Ollama support
-"""
-# Redirect all imports to the new intelligent AI module
-from .intelligent_ai import IntelligentAIManager, get_ai_manager
+BACKWARD COMPATIBLE WRAPPER - Now uses human_ai.py for truly human-like responses
+\"\"\"
+# Redirect all imports to the human AI module
+from .human_ai import (
+    HumanAIManager,
+    get_human_ai_manager as get_ai_manager,
+    Personality,
+    EmotionalState
+)
 
-# Alias for backward compatibility
-SelfHealingAIManager = IntelligentAIManager
+# Aliases for backward compatibility
+SelfHealingAIManager = HumanAIManager
+IntelligentAIManager = HumanAIManager
 
-__all__ = ['SelfHealingAIManager', 'get_ai_manager', 'IntelligentAIManager']
-
+__all__ = [
+    'SelfHealingAIManager', 
+    'IntelligentAIManager',
+    'HumanAIManager',
+    'get_ai_manager',
+    'Personality',
+    'EmotionalState'
+]
