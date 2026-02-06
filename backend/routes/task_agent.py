@@ -2,6 +2,7 @@
 NEW Task-Based Agent Flow
 Uses AI to match user input to tasks, then collects required info
 """
+import re
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
@@ -12,6 +13,32 @@ from ..core.plugins import PluginManager
 from ..core.confirmation_manager import get_confirmation_manager, PendingAction
 
 router = APIRouter()
+
+def _detect_communication_method(text: str) -> str:
+    """Detect communication method from text (email, telegram, etc.)"""
+    text_lower = text.lower()
+    
+    # Email patterns
+    email_pattern = r'[\w\.-]+@[\w\.-]+\.\w+'
+    if re.search(email_pattern, text):
+        return "email"
+    if any(word in text_lower for word in ["email", "mail", "e-mail", "gmail", "outlook", "yahoo"]):
+        return "email"
+    
+    # Telegram patterns
+    if "telegram" in text_lower or " tg " in text_lower:
+        return "telegram"
+    
+    # WhatsApp patterns
+    if "whatsapp" in text_lower or "wa " in text_lower:
+        return "whatsapp"
+    
+    # SMS patterns
+    if "sms" in text_lower or "text message" in text_lower:
+        return "sms"
+    
+    # Default to telegram for backward compatibility
+    return "telegram"
 
 class AgentRequest(BaseModel):
     message: str
@@ -169,17 +196,41 @@ Only include fields that are mentioned."""
 
 async def generate_execution_plan(task, collected_info: Dict[str, Any]) -> Dict[str, Any]:
     """Generate execution plan based on task and collected info"""
-    from ..core.self_healing_ai import get_ai_manager
+    from ..core.intelligent_ai import get_ai_manager
     ai_manager = get_ai_manager()
+    
+    # Smart detection of communication method
+    user_input = str(collected_info)
+    comm_method = _detect_communication_method(user_input)
+    
+    # Determine which plugin to use for sending
+    if comm_method == "email":
+        send_plugin = "gmail"
+        send_example = '''{{
+      "type": "send_email",
+      "description": "Send email to recipient",
+      "plugin": "gmail",
+      "parameters": {{"to": "email@example.com", "subject": "Meeting Invitation", "body": "Join here: {{meeting_link}}"}}
+    }}'''
+    else:
+        send_plugin = "telegram"
+        send_example = '''{{
+      "type": "send_message",
+      "description": "Send link via Telegram",
+      "plugin": "telegram",
+      "parameters": {{"message": "Join here: {{meeting_link}}"}}
+    }}'''
     
     prompt = f"""Task: {task.description}
 Available plugins: {', '.join(task.plugins)}
 User provided: {collected_info}
+Detected communication method: {comm_method}
 
 Generate an execution plan with specific actions.
 IMPORTANT:
 - If user did NOT specify a platform (Zoom/Google Meet), use 'Jitsi' (plugin: browser_meeting) for instant working links.
-- For Telegram messages, include {{meeting_link}} placeholder.
+- Use {send_plugin} for sending since user mentioned {comm_method}.
+- Include {{meeting_link}} placeholder where the meeting link should go.
 
 Return JSON:
 {{
@@ -190,12 +241,7 @@ Return JSON:
       "plugin": "browser_meeting",
       "parameters": {{"platform": "jitsi", "topic": "Meeting"}}
     }},
-    {{
-      "type": "send_message",
-      "description": "Send link via Telegram",
-      "plugin": "telegram",
-      "parameters": {{"message": "Join here: {{meeting_link}}"}}
-    }}
+    {send_example}
   ]
 }}"""
 

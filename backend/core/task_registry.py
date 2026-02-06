@@ -78,10 +78,10 @@ class TaskRegistry:
         return self.tasks.get(task_id)
     
     def get_task_descriptions_for_ai(self) -> str:
-        """Get formatted task descriptions for AI matching"""
+        """Get formatted task descriptions for AI matching with explicit task_ids"""
         descriptions = []
-        for task in self.tasks.values():
-            descriptions.append(f"- {task.name}: {task.description}")
+        for task_id, task in self.tasks.items():
+            descriptions.append(f'- task_id="{task_id}": {task.description}')
         return "\n".join(descriptions)
 
 # Global registry instance

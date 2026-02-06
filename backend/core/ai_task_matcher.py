@@ -4,7 +4,7 @@ Uses AI to match user input to available tasks
 """
 from typing import Dict, Any, Optional
 from .task_registry import get_task_registry
-from .self_healing_ai import get_ai_manager
+from .intelligent_ai import get_ai_manager
 import asyncio
 
 class AITaskMatcher:
@@ -29,23 +29,27 @@ class AITaskMatcher:
         # Ask AI to match the user input to a task
         prompt = f"""User request: "{user_input}"
 
-Available tasks:
+Available tasks (format: task_id="xxx"):
 {available_tasks}
 
 Analyze the user's request and determine which task they want to perform.
 Also extract any information they've already provided.
 
+IMPORTANT: task_id must be EXACTLY as shown (lowercase with underscores), e.g. "schedule_meeting", "send_message", NOT "Schedule Meeting"!
+
 Return JSON:
 {{
-  "task_id": "task_id_from_list",
+  "task_id": "schedule_meeting",
   "confidence": "high" or "medium" or "low",
   "reasoning": "why you chose this task",
   "extracted_info": {{
-    "key": "value for any information mentioned"
+    "time": "value if mentioned",
+    "participants": "email or name if mentioned",
+    "recipient": "email address if mentioned"
   }}
 }}
 
-If no task matches well, use task_id: "general" with low confidence."""
+If no task matches, use task_id: "general" with low confidence."""
 
         try:
             print(f"[AI_TASK_MATCHER] Sending prompt to AI: {prompt[:100]}...")
