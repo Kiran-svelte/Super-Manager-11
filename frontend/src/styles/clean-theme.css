@@ -419,14 +419,31 @@ body {
   border-top-left-radius: var(--radius-sm);
 }
 
-.message-bubble a {
-  color: inherit;
+.message-bubble a,
+.chat-link {
+  color: #2563eb;
   text-decoration: underline;
   text-underline-offset: 2px;
+  font-weight: 500;
+  cursor: pointer;
+  word-break: break-all;
+  transition: color 0.15s ease;
 }
 
-.message.user .message-bubble a {
-  color: var(--primary-100);
+.message-bubble a:hover,
+.chat-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.message.user .message-bubble a,
+.message.user .chat-link {
+  color: #bfdbfe;
+}
+
+.message.user .message-bubble a:hover,
+.message.user .chat-link:hover {
+  color: #ffffff;
 }
 
 .message-time {

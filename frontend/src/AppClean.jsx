@@ -25,12 +25,27 @@ const formatTime = (date) => {
 }
 
 const parseLinks = (text) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g
-  return text.split(urlRegex).map((part, i) => {
+  if (!text) return text
+  const urlRegex = /(https?:\/\/[^\s<>"]+)/g
+  const parts = text.split(urlRegex)
+  
+  return parts.map((part, i) => {
     if (part.match(urlRegex)) {
+      // Clean URL (remove trailing punctuation)
+      const cleanUrl = part.replace(/[.,;:!?)]+$/, '')
+      const displayUrl = cleanUrl.length > 50 
+        ? cleanUrl.replace(/^https?:\/\//, '').substring(0, 40) + '...' 
+        : cleanUrl.replace(/^https?:\/\//, '')
       return (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer">
-          {part.length > 40 ? part.substring(0, 37) + '...' : part}
+        <a 
+          key={i} 
+          href={cleanUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="chat-link"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {displayUrl}
         </a>
       )
     }
