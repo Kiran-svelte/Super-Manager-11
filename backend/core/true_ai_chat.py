@@ -421,6 +421,10 @@ DO NOT call the original action tool again - use execute_confirmed_action instea
                 if func_args.get("confirmed") and conversation.pending_action:
                     # Execute the pending action!
                     exec_result = await self._execute_action(conversation.pending_action)
+                    
+                    # Create orchestrated task for tracking
+                    await self._create_orchestrated_task(conversation.pending_action, exec_result, session_id)
+                    
                     conversation.pending_action = None
                     results.append(exec_result)
                 else:
@@ -666,6 +670,67 @@ DO NOT call the original action tool again - use execute_confirmed_action instea
             "action_completed": True,
             "results": results
         }
+    
+    async def _create_orchestrated_task(
+        self, 
+        action: Dict, 
+        result: Dict, 
+        session_id: str
+    ) -> None:
+        """Create an orchestrated task for tracking progress"""
+        try:
+            from ..agent.orchestrator import get_orchestrator
+            
+            orchestrator = get_orchestrator()  # Not async
+            tool = action.get("tool", "")
+            args = action.get("args", {})
+            
+            # Determine task type based on tool
+            task_type_map = {
+                "send_email": "send_email",
+                "create_meeting": "schedule_meeting",
+                "set_reminder": "set_reminder",
+                "send_whatsapp": "send_message",
+                "send_telegram": "send_message"
+            }
+            
+            task_type = task_type_map.get(tool, "general")
+            
+            # Build task title
+            if tool == "send_email":
+                title = f"Send email to {args.get('to', 'recipient')}"
+            elif tool == "create_meeting":
+                title = f"Meeting: {args.get('title', 'Untitled')}"
+            elif tool == "set_reminder":
+                title = f"Reminder: {args.get('reminder_text', 'Untitled')[:50]}"
+            else:
+                title = f"{tool.replace('_', ' ').title()}"
+            
+            # Get meeting URL if present
+            meeting_url = result.get("url") or result.get("result", {}).get("url")
+            
+            # Create the orchestrated task
+            params = {
+                "title": title,
+                "description": f"Created from chat: {tool}",
+                "session_id": session_id,
+                "tool": tool,
+                "args": args,
+                "result": result,
+                "meeting_url": meeting_url
+            }
+            
+            await orchestrator.create_task(
+                user_id=session_id,  # Using session_id as user identifier
+                task_type=task_type,
+                params=params
+            )
+            
+            print(f"[ORCHESTRATOR] Created task: {title}")
+            
+        except Exception as e:
+            # Don't fail the main action if orchestrator fails
+            print(f"[ORCHESTRATOR ERROR] Could not create task: {str(e)}")
 
 
 # ============================================================================

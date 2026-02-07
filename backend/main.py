@@ -61,9 +61,13 @@ logger.info("[DB] Using Supabase PostgreSQL")
 
 from .routes import agent, plugins, task_agent, tasks, memory, chat, autonomous, streaming, api
 from .routes import agent_v2  # NEW: Agent V2 system
+from .routes import tasks_v2  # NEW: Task Orchestration API
 from .core.agent import AgentManager
 from .core.ai_providers import get_ai_router
 from .core.realtime import get_connection_manager, websocket_endpoint
+
+# Import scheduler
+from .agent.scheduler import start_scheduler, stop_scheduler
 
 # Initialize request tracer
 request_tracer = RequestTracer()
@@ -111,6 +115,13 @@ async def lifespan(app: FastAPI):
     app.state.ws_manager = get_connection_manager()
     health_monitor.update_health("websocket", True)
     logger.info("[WS] ✅ WebSocket Manager initialized")
+    
+    # Start the job scheduler for reminders and scheduled tasks
+    try:
+        start_scheduler()
+        logger.info("[SCHEDULER] ✅ Job scheduler started")
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] ⚠️ Scheduler warning: {e}")
     
     # Store performance utilities in app state
     app.state.request_tracer = request_tracer
@@ -220,6 +231,7 @@ app.add_middleware(
 app.include_router(api.router)  # MAIN: /api/chat - clean brain
 app.include_router(streaming.router)  # /api/stream/* - streaming version
 app.include_router(agent_v2.router)  # NEW: /api/v2/* - TRUE AI Agent
+app.include_router(tasks_v2.router)  # NEW: /api/v2/tasks/* - Task Orchestration
 app.include_router(autonomous.router)  # Legacy
 app.include_router(chat.router)  # Legacy
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])

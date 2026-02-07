@@ -10,6 +10,31 @@ body {
   color: #e2e8f0;
 }
 
+/* App Container - Split Layout */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+.app-container .chat-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  transition: max-width 0.3s ease;
+}
+
+.app-container.with-panel .chat-section {
+  max-width: calc(100% - 400px);
+}
+
+.task-section {
+  width: 400px;
+  flex-shrink: 0;
+}
+
+/* Legacy .app class for backwards compatibility */
 .app {
   display: flex;
   flex-direction: column;
@@ -23,7 +48,13 @@ header {
   padding: 1rem;
   background: #1e293b;
   border-bottom: 1px solid #334155;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-left {
+  text-align: left;
 }
 
 header h1 {
@@ -34,6 +65,25 @@ header h1 {
 header span {
   font-size: 0.75rem;
   color: #64748b;
+}
+
+.panel-toggle {
+  background: transparent;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #94a3b8;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #7c3aed;
+  color: #a78bfa;
 }
 
 /* Messages */
@@ -210,8 +260,33 @@ main::-webkit-scrollbar-thumb {
 }
 
 /* Mobile */
+@media (max-width: 900px) {
+  .app-container {
+    flex-direction: column;
+  }
+  
+  .app-container .chat-section {
+    max-width: 100% !important;
+  }
+  
+  .task-section {
+    width: 100%;
+    height: 50vh;
+    border-left: none;
+    border-top: 1px solid #334155;
+  }
+  
+  .bubble {
+    max-width: 90%;
+  }
+}
+
 @media (max-width: 640px) {
   .bubble {
     max-width: 90%;
+  }
+  
+  .panel-toggle {
+    padding: 6px;
   }
 }
