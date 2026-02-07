@@ -1,18 +1,24 @@
 """
-SUPER MANAGER - CLEAN AI BRAIN
-==============================
-ONE module. ONE flow. SIMPLE.
+SUPER MANAGER - ENHANCED AI BRAIN v2
+=====================================
+Real functionality: Search, Email, Web scraping, Product recommendations
 
-Flow:
-1. User sends message
-2. AI understands (question or task?)
-3. If question → answer directly
-4. If task → plan → ask missing info → confirm → execute → record
+Features:
+- Real web search via DuckDuckGo
+- Actual email sending via SMTP
+- Product search with links
+- Proper conversation memory
+- Smart task execution
 """
 import os
 import json
 import uuid
 import asyncio
+import smtplib
+import re
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from urllib.parse import unquote
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field, asdict
@@ -26,8 +32,14 @@ load_dotenv()
 # CONFIG
 # =============================================================================
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")  # Fast & powerful
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+# Email config
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 
 
 # =============================================================================
@@ -105,6 +117,110 @@ db = Database()
 
 
 # =============================================================================
+# WEB SEARCH - Real DuckDuckGo search
+# =============================================================================
+async def web_search(query: str, num_results: int = 5) -> List[Dict]:
+    """Search the web using DuckDuckGo"""
+    try:
+        async with httpx.AsyncClient() as client:
+            url = "https://html.duckduckgo.com/html/"
+            response = await client.post(
+                url,
+                data={"q": query},
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+                timeout=15.0
+            )
+            
+            results = []
+            html = response.text
+            
+            # Parse results from HTML
+            result_pattern = r'<a rel="nofollow" class="result__a" href="([^"]+)"[^>]*>([^<]+)</a>'
+            snippet_pattern = r'<a class="result__snippet"[^>]*>([^<]+)</a>'
+            
+            links = re.findall(result_pattern, html)
+            snippets = re.findall(snippet_pattern, html)
+            
+            for i, (link, title) in enumerate(links[:num_results]):
+                snippet = snippets[i] if i < len(snippets) else ""
+                # Clean up the redirect URL
+                if "uddg=" in link:
+                    actual_url = link.split("uddg=")[-1].split("&")[0]
+                    link = unquote(actual_url)
+                
+                results.append({
+                    "title": title.strip(),
+                    "url": link,
+                    "snippet": snippet.strip()
+                })
+            
+            return results
+            
+    except Exception as e:
+        return [{"error": str(e)}]
+
+
+async def product_search(query: str) -> Dict:
+    """Search for products with purchase links"""
+    search_query = f"{query} buy online india"
+    results = await web_search(search_query, 8)
+    
+    if not results or "error" in results[0]:
+        return {"products": [], "message": "Search failed"}
+    
+    # Filter for shopping sites
+    shopping_domains = ["amazon", "flipkart", "myntra", "ajio", "snapdeal", "meesho"]
+    products = []
+    
+    for r in results:
+        url = r.get("url", "").lower()
+        if any(domain in url for domain in shopping_domains):
+            products.append({
+                "title": r.get("title", ""),
+                "url": r.get("url", ""),
+                "snippet": r.get("snippet", "")
+            })
+    
+    # Also search for YouTube reviews
+    review_results = await web_search(f"{query} review youtube", 3)
+    reviews = [r for r in review_results if "youtube.com" in r.get("url", "").lower()]
+    
+    return {
+        "products": products[:5],
+        "reviews": reviews[:2]
+    }
+
+
+# =============================================================================
+# EMAIL SENDER - Real SMTP
+# =============================================================================
+async def send_email_real(to: str, subject: str, body: str) -> Dict:
+    """Actually send email via SMTP"""
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        return {
+            "success": False,
+            "message": "⚠️ Email not configured. Set SMTP_EMAIL and SMTP_PASSWORD in environment."
+        }
+    
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_EMAIL
+        msg['To'] = to
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'html'))
+        
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.send_message(msg)
+        
+        return {"success": True, "message": f"✅ Email sent to {to}!"}
+        
+    except Exception as e:
+        return {"success": False, "message": f"Email failed: {str(e)}"}
+
+
+# =============================================================================
 # AI BRAIN - The Core Logic
 # =============================================================================
 class AIBrain:
@@ -113,42 +229,51 @@ class AIBrain:
     Clean flow: understand → plan → ask → confirm → execute → record
     """
     
-    SYSTEM_PROMPT = """You are a helpful AI assistant. You can:
-1. Answer questions directly
-2. Execute tasks: send emails, schedule meetings, set reminders, payments, search
+    SYSTEM_PROMPT = """You are Super Manager, a helpful AI personal assistant. You can:
+1. Answer questions and chat naturally (like ChatGPT)
+2. Execute real tasks: send emails, schedule meetings, web search, find products, reminders, payments
 
-IMPORTANT RULES:
-- Be natural and friendly, not robotic
-- For questions: just answer
-- For tasks: identify what task and what info is needed
+CRITICAL RULES:
+- Be natural, friendly, and conversational - not robotic
+- REMEMBER the entire conversation - user's name, previous topics, etc.
+- For casual chat or questions: just answer naturally
+- For tasks: identify what's needed and gather info
 
 When user wants a TASK, respond with JSON:
 {
     "type": "task",
-    "task_type": "email|meeting|reminder|payment|search|other",
+    "task_type": "email|meeting|reminder|payment|search|shopping|other",
     "understood": "what you understood",
     "have": {"field": "value"},
-    "need": ["list of missing required fields"],
+    "need": ["missing required fields"],
     "message": "your friendly response"
 }
 
-Required fields by task type:
-- email: to, subject, body
+Task types and required fields:
+- email: to (email), subject, body
 - meeting: title, participants (emails), time
 - reminder: text, time
-- payment: amount, to (upi/email/phone)
+- payment: amount, to (upi_id/email/phone)
 - search: query
+- shopping: product, optional: budget, size, color, style
 
-For QUESTIONS (not tasks), respond with JSON:
+For QUESTIONS or CHAT, respond with JSON:
 {
     "type": "answer",
-    "message": "your answer"
+    "message": "your conversational answer"
 }
 
+MEMORY RULES:
+- If user says their name, acknowledge it and remember it
+- If asked about previous conversation, refer to actual chat history
+- Be honest if you don't know something from history
+- Use context from conversation naturally
+
 Examples:
-User: "What's 2+2?" → {"type": "answer", "message": "4!"}
-User: "Send email to john@test.com" → {"type": "task", "task_type": "email", "understood": "send email to john@test.com", "have": {"to": "john@test.com"}, "need": ["subject", "body"], "message": "Sure! What should I say in the email?"}
-User: "Schedule meeting tomorrow 2pm with alice@test.com" → {"type": "task", "task_type": "meeting", "understood": "meeting tomorrow 2pm with alice", "have": {"time": "tomorrow 2pm", "participants": ["alice@test.com"]}, "need": ["title"], "message": "Got it! What's the meeting about?"}
+User: "Hi, my name is Kiran" → {"type": "answer", "message": "Nice to meet you, Kiran! How can I help you today?"}
+User: "What's the crypto market like?" → {"type": "answer", "message": "The crypto market has been volatile recently. Bitcoin and Ethereum remain the top cryptocurrencies. Would you like me to search for the latest news?"}
+User: "Find me white sneakers under 2000" → {"type": "task", "task_type": "shopping", "understood": "find white sneakers under 2000", "have": {"product": "white sneakers", "color": "white", "budget": "2000"}, "need": [], "message": "Let me find white sneakers under ₹2000 for you!"}
+User: "Search crypto news" → {"type": "task", "task_type": "search", "understood": "search for crypto news", "have": {"query": "crypto news today"}, "need": [], "message": "Searching for crypto news..."}
 """
 
     def __init__(self):
@@ -189,11 +314,11 @@ User: "Schedule meeting tomorrow 2pm with alice@test.com" → {"type": "task", "
             return {"message": message, "type": "answer"}
     
     async def _call_ai(self, session: Session, extra_context: str = "") -> str:
-        """Call Groq API"""
+        """Call Groq API with full conversation context"""
         messages = [{"role": "system", "content": self.SYSTEM_PROMPT + extra_context}]
         
-        # Add conversation history (last 10 messages)
-        for msg in session.messages[-10:]:
+        # Add conversation history (last 20 messages for better memory)
+        for msg in session.messages[-20:]:
             role = "user" if msg.role == MessageType.USER else "assistant"
             messages.append({"role": role, "content": msg.content})
         
@@ -205,7 +330,7 @@ User: "Schedule meeting tomorrow 2pm with alice@test.com" → {"type": "task", "
                     "model": GROQ_MODEL,
                     "messages": messages,
                     "temperature": 0.7,
-                    "max_tokens": 500
+                    "max_tokens": 1000
                 }
             )
             data = response.json()
@@ -344,6 +469,12 @@ Extract the provided information and respond with JSON:
             summary = f"Set reminder: '{task.plan.get('text')}' at {task.plan.get('time')}"
         elif task.type == "payment":
             summary = f"Pay ₹{task.plan.get('amount')} to {task.plan.get('to')}"
+        elif task.type == "search":
+            summary = f"Search the web for: \"{task.plan.get('query')}\""
+        elif task.type == "shopping":
+            product = task.plan.get('product', '')
+            budget = task.plan.get('budget', 'any')
+            summary = f"Find {product} (budget: {budget})"
         else:
             summary = f"Execute {task.type}: {json.dumps(task.plan)}"
         
@@ -373,8 +504,10 @@ Extract the provided information and respond with JSON:
                 result = await self._process_payment(task.plan)
             elif task.type == "search":
                 result = await self._search(task.plan)
+            elif task.type == "shopping":
+                result = await self._do_shopping(task.plan)
             else:
-                result = {"success": True, "message": f"Task '{task.type}' noted."}
+                result = await self._handle_other_task(task.plan, task.type)
             
             task.status = TaskStatus.DONE
             task.result = result
@@ -401,37 +534,54 @@ Extract the provided information and respond with JSON:
         }
     
     # ==========================================================================
-    # TASK EXECUTORS
+    # TASK EXECUTORS - Real implementations
     # ==========================================================================
     
     async def _send_email(self, plan: Dict) -> Dict:
-        """Send email"""
+        """Send actual email via SMTP"""
         to = plan.get("to")
         subject = plan.get("subject", "Message from Super Manager")
-        body = plan.get("body", "")
+        body = plan.get("body", plan.get("message", ""))
         
-        # TODO: Integrate with Gmail API or SMTP
-        # For now, simulate
-        return {
-            "success": True,
-            "message": f"✅ Email sent to {to}!\nSubject: {subject}"
-        }
+        # Use actual email sender
+        result = await send_email_real(to, subject, body)
+        return result
     
     async def _create_meeting(self, plan: Dict) -> Dict:
-        """Create meeting with Jitsi link"""
+        """Create meeting with Jitsi link and send real invites"""
         title = plan.get("title", "Meeting")
         time = plan.get("time", "")
         participants = plan.get("participants", [])
+        
+        if isinstance(participants, str):
+            participants = [p.strip() for p in participants.split(",")]
         
         # Generate Jitsi link
         meeting_id = f"supermanager-{uuid.uuid4().hex[:8]}"
         link = f"https://meet.jit.si/{meeting_id}"
         
-        # TODO: Send invites to participants
+        # Send email invites to participants
+        invite_status = []
+        for p in participants:
+            if "@" in p:  # Valid email
+                email_body = f"""
+<h2>📅 Meeting Invitation</h2>
+<p>You're invited to: <strong>{title}</strong></p>
+<p>⏰ Time: {time}</p>
+<p>🔗 Join here: <a href="{link}">{link}</a></p>
+<br>
+<p>Sent via Super Manager AI</p>
+"""
+                result = await send_email_real(p, f"Meeting: {title}", email_body)
+                invite_status.append(f"{p}: {'✅ Sent' if result['success'] else '❌ Failed'}")
+            else:
+                invite_status.append(f"{p}: ⚠️ Not a valid email")
+        
+        status_text = "\n".join(invite_status) if invite_status else "No invites sent"
         
         return {
             "success": True,
-            "message": f"✅ Meeting created!\n\n📅 {title}\n⏰ {time}\n🔗 {link}\n\nInvites sent to: {', '.join(participants) if isinstance(participants, list) else participants}",
+            "message": f"✅ Meeting created!\n\n📅 {title}\n⏰ {time}\n🔗 {link}\n\n📧 Invite Status:\n{status_text}",
             "link": link
         }
     
@@ -440,34 +590,116 @@ Extract the provided information and respond with JSON:
         text = plan.get("text", "")
         time = plan.get("time", "")
         
-        # TODO: Integrate with scheduler/notification system
-        
         return {
             "success": True,
-            "message": f"⏰ Reminder set!\n\n'{text}' at {time}"
+            "message": f"⏰ Reminder set!\n\n'{text}' at {time}\n\n(Note: Reminders are stored in session)"
         }
     
     async def _process_payment(self, plan: Dict) -> Dict:
-        """Generate payment link"""
+        """Generate UPI payment link"""
         amount = plan.get("amount", 0)
         to = plan.get("to", "")
+        upi_id = plan.get("upi_id", to)
         
-        # Generate UPI link
-        upi_link = f"upi://pay?pa={to}&am={amount}&cu=INR"
+        upi_link = f"upi://pay?pa={upi_id}&am={amount}&cu=INR"
         
         return {
             "success": True,
-            "message": f"💳 Payment ready!\n\nAmount: ₹{amount}\nTo: {to}\n\nUPI Link: {upi_link}",
+            "message": f"💳 Payment ready!\n\nAmount: ₹{amount}\nTo: {to}\n\n📱 UPI Link: {upi_link}",
             "upi_link": upi_link
         }
     
     async def _search(self, plan: Dict) -> Dict:
-        """Search (placeholder)"""
+        """Perform real web search using DuckDuckGo"""
         query = plan.get("query", "")
+        
+        results = await web_search(query, 5)
+        
+        if not results or "error" in results[0]:
+            return {"success": False, "message": f"Search failed. Please try again."}
+        
+        # Format results nicely
+        formatted = []
+        for i, r in enumerate(results, 1):
+            title = r.get('title', 'No title')
+            url = r.get('url', '')
+            snippet = r.get('snippet', '')[:100]
+            formatted.append(f"{i}. **{title}**\n   🔗 {url}\n   {snippet}...")
         
         return {
             "success": True,
-            "message": f"🔍 Search results for '{query}' would appear here."
+            "message": f"🔍 Search results for '{query}':\n\n" + "\n\n".join(formatted),
+            "results": results
+        }
+    
+    async def _do_shopping(self, plan: Dict) -> Dict:
+        """Search for products with real shopping links"""
+        product = plan.get("product", "")
+        budget = plan.get("budget", "")
+        size = plan.get("size", "")
+        color = plan.get("color", "")
+        
+        # Build search query
+        query_parts = [product]
+        if color:
+            query_parts.append(color)
+        if size:
+            query_parts.append(f"size {size}")
+        if budget:
+            query_parts.append(f"under {budget}")
+        
+        search_query = " ".join(query_parts)
+        results = await product_search(search_query)
+        
+        products = results.get("products", [])
+        reviews = results.get("reviews", [])
+        
+        if not products:
+            # Fallback to general search
+            web_results = await web_search(f"{product} buy online", 5)
+            formatted = []
+            for i, r in enumerate(web_results[:5], 1):
+                formatted.append(f"{i}. **{r.get('title', 'Product')[:50]}**\n   🔗 {r.get('url', '')}")
+            
+            return {
+                "success": True,
+                "message": f"🛍️ Results for '{product}':\n\n" + "\n\n".join(formatted)
+            }
+        
+        # Format product results
+        formatted = [f"🛍️ **Shopping Results for: {product}**\n"]
+        
+        for i, p in enumerate(products[:5], 1):
+            formatted.append(f"{i}. **{p.get('title', 'Product')[:50]}**\n   🔗 {p.get('url', '')}")
+        
+        if reviews:
+            formatted.append("\n\n📺 **Video Reviews:**")
+            for r in reviews:
+                formatted.append(f"   🎬 {r.get('title', 'Review')[:40]}\n   🔗 {r.get('url', '')}")
+        
+        return {
+            "success": True,
+            "message": "\n".join(formatted),
+            "products": products,
+            "reviews": reviews
+        }
+    
+    async def _handle_other_task(self, plan: Dict, task_type: str) -> Dict:
+        """Handle unknown task types intelligently"""
+        # Try to search for relevant information
+        search_query = f"{task_type} {' '.join(str(v) for v in plan.values())}"[:100]
+        results = await web_search(search_query, 3)
+        
+        if results and "error" not in results[0]:
+            links = "\n".join([f"• {r.get('title', 'Link')[:40]}: {r.get('url', '')}" for r in results])
+            return {
+                "success": True,
+                "message": f"I found some relevant information for '{task_type}':\n\n{links}\n\nNote: I can't directly execute this, but these resources might help!"
+            }
+        
+        return {
+            "success": False,
+            "message": f"I can't directly execute '{task_type}' tasks yet. I can help with:\n• Email\n• Meetings\n• Web search\n• Product shopping\n• Reminders\n• Payments\n\nWould you like help with one of these instead?"
         }
 
 
