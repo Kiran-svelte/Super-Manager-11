@@ -1,0 +1,113 @@
+# =============================================================================
+# Super Manager - Prometheus Configuration
+# =============================================================================
+# Monitoring configuration for metrics collection, alerting, and service
+# discovery.
+# =============================================================================
+
+global:
+  scrape_interval: 15s          # How often to scrape targets
+  evaluation_interval: 15s      # How often to evaluate rules
+  scrape_timeout: 10s           # Timeout for scrape requests
+
+  # Attach labels to any time series or alerts
+  external_labels:
+    environment: 'production'
+    service: 'super-manager'
+
+# =============================================================================
+# Alerting Configuration
+# =============================================================================
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# =============================================================================
+# Rule Files
+# =============================================================================
+rule_files:
+  # - "alerts/*.yml"
+  # - "recording_rules/*.yml"
+
+# =============================================================================
+# Scrape Configurations
+# =============================================================================
+scrape_configs:
+  # ---------------------------------------------------------------------------
+  # Prometheus self-monitoring
+  # ---------------------------------------------------------------------------
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scheme: http
+
+  # ---------------------------------------------------------------------------
+  # Super Manager Backend
+  # ---------------------------------------------------------------------------
+  - job_name: 'supermanager-backend'
+    static_configs:
+      - targets: ['backend:8000']
+        labels:
+          service: 'backend'
+          version: '1.0.0'
+    metrics_path: /api/metrics
+    scheme: http
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # ---------------------------------------------------------------------------
+  # Redis Cache Metrics
+  # ---------------------------------------------------------------------------
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+        labels:
+          service: 'cache'
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database (if using exporter)
+  # ---------------------------------------------------------------------------
+  # - job_name: 'postgresql'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+  #       labels:
+  #         service: 'database'
+
+  # ---------------------------------------------------------------------------
+  # Nginx Metrics (if using nginx-prometheus-exporter)
+  # ---------------------------------------------------------------------------
+  # - job_name: 'nginx'
+  #   static_configs:
+  #     - targets: ['nginx-exporter:9113']
+  #       labels:
+  #         service: 'nginx'
+
+  # ---------------------------------------------------------------------------
+  # Node Exporter (system metrics)
+  # ---------------------------------------------------------------------------
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+  #       labels:
+  #         service: 'system'
+
+  # ---------------------------------------------------------------------------
+  # Docker Container Metrics (cAdvisor)
+  # ---------------------------------------------------------------------------
+  # - job_name: 'cadvisor'
+  #   static_configs:
+  #     - targets: ['cadvisor:8080']
+  #       labels:
+  #         service: 'containers'
+
+# =============================================================================
+# Remote Write (Optional - for cloud monitoring)
+# =============================================================================
+# remote_write:
+#   - url: "https://prometheus-cloud.example.com/api/v1/write"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"

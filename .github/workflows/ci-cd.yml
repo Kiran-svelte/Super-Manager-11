@@ -1,0 +1,496 @@
+# =============================================================================
+# Super Manager - Comprehensive CI/CD Pipeline
+# Automated testing, security scanning, building, and deployment
+# =============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
+# Cancel in-progress runs for same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =============================================================================
+  # Code Quality & Linting
+  # =============================================================================
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Python linters
+        run: |
+          pip install --upgrade pip
+          pip install black flake8 isort mypy pylint bandit
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run Black (Python formatting)
+        run: black --check --diff backend
+
+      - name: Run isort (Python imports)
+        run: isort --check-only --diff backend
+
+      - name: Run flake8 (Python linting)
+        run: |
+          flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 backend --count --exit-zero --max-complexity=15 --max-line-length=120 --statistics
+
+      - name: Run ESLint (JavaScript)
+        working-directory: frontend
+        run: npx eslint --ext .js,.jsx src/ --max-warnings=10 || true
+
+  # =============================================================================
+  # Security Scanning
+  # =============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install security tools
+        run: |
+          pip install bandit safety pip-audit
+
+      - name: Run Bandit (Python security)
+        run: |
+          bandit -r backend -ll -ii --format json --output bandit-report.json || true
+          bandit -r backend -ll -ii
+
+      - name: Run Safety (dependency vulnerabilities)
+        run: |
+          safety check -r requirements.txt --json --output safety-report.json || true
+          safety check -r requirements.txt || true
+
+      - name: Run pip-audit
+        run: pip-audit -r requirements.txt || true
+
+      - name: Run npm audit
+        working-directory: frontend
+        run: npm audit --audit-level=high || true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+
+  # =============================================================================
+  # Backend Tests
+  # =============================================================================
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov pytest-xdist httpx
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit -v --cov=backend --cov-report=xml --cov-report=html -n auto
+        env:
+          TESTING: "true"
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration -v --cov=backend --cov-append --cov-report=xml -n auto
+        env:
+          TESTING: "true"
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: |
+            coverage.xml
+            htmlcov/
+
+  # =============================================================================
+  # Frontend Tests
+  # =============================================================================
+  test-frontend:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: frontend
+        run: npm test -- --coverage --watchAll=false || true
+
+      - name: Build check
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: /api
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+          retention-days: 7
+
+  # =============================================================================
+  # Build Docker Image
+  # =============================================================================
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint, test-backend, test-frontend]
+    if: github.event_name != 'pull_request'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VERSION=${{ steps.meta.outputs.version }}
+            COMMIT_SHA=${{ github.sha }}
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # =============================================================================
+  # Deploy to Staging
+  # =============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'staging'
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Render (Staging)
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_STAGING }}"
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_STAGING != '' }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          for i in {1..10}; do
+            if curl -sf "${{ vars.STAGING_URL }}/api/health"; then
+              echo "Staging is healthy!"
+              exit 0
+            fi
+            echo "Waiting for staging to be ready... ($i/10)"
+            sleep 10
+          done
+          echo "Staging health check failed"
+          exit 1
+
+      - name: Run smoke tests
+        run: |
+          # Basic API test
+          response=$(curl -s -X POST "${{ vars.STAGING_URL }}/api/chat" \
+            -H "Content-Type: application/json" \
+            -d '{"message": "hello", "session_id": "ci-test"}')
+          echo "Response: $response"
+          if echo "$response" | grep -q "message"; then
+            echo "Smoke test passed!"
+          else
+            echo "Smoke test failed!"
+            exit 1
+          fi
+
+      - name: Notify Slack (Staging)
+        uses: slackapi/slack-github-action@v1
+        if: always()
+        with:
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} Staging deployment ${{ job.status }}\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # =============================================================================
+  # Deploy to Production
+  # =============================================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'release' || github.event.inputs.environment == 'production'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create deployment record
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'production',
+              auto_merge: false,
+              required_contexts: []
+            });
+            core.setOutput('deployment_id', deployment.data.id);
+
+      - name: Deploy to Render (Production)
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PROD }}"
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_PROD != '' }}
+
+      - name: Wait for deployment
+        run: sleep 60
+
+      - name: Health check
+        run: |
+          for i in {1..15}; do
+            if curl -sf "${{ vars.PRODUCTION_URL }}/api/health"; then
+              echo "Production is healthy!"
+              exit 0
+            fi
+            echo "Waiting for production to be ready... ($i/15)"
+            sleep 15
+          done
+          echo "Production health check failed"
+          exit 1
+
+      - name: Run production smoke tests
+        run: |
+          # API health
+          curl -sf "${{ vars.PRODUCTION_URL }}/api/health" || exit 1
+          # Status endpoint
+          curl -sf "${{ vars.PRODUCTION_URL }}/api/status" || exit 1
+          echo "All smoke tests passed!"
+
+      - name: Notify Slack (Production)
+        uses: slackapi/slack-github-action@v1
+        if: always()
+        with:
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '🚀' || '🔥' }} Production deployment ${{ job.status }}\nVersion: ${{ github.ref_name }}\nCommit: ${{ github.sha }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # =============================================================================
+  # Performance Tests (Optional)
+  # =============================================================================
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run k6 load tests
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: tests/performance/load-test.js
+        env:
+          K6_TARGET_URL: ${{ vars.STAGING_URL }}
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-results
+          path: results/
