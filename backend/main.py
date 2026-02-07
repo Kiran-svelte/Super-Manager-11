@@ -60,6 +60,7 @@ from .database_supabase import init_db, get_db
 logger.info("[DB] Using Supabase PostgreSQL")
 
 from .routes import agent, plugins, task_agent, tasks, memory, chat, autonomous, streaming, api
+from .routes import agent_v2  # NEW: Agent V2 system
 from .core.agent import AgentManager
 from .core.ai_providers import get_ai_router
 from .core.realtime import get_connection_manager, websocket_endpoint
@@ -218,6 +219,7 @@ app.add_middleware(
 # /api/chat is THE MAIN ENDPOINT - clean, simple flow
 app.include_router(api.router)  # MAIN: /api/chat - clean brain
 app.include_router(streaming.router)  # /api/stream/* - streaming version
+app.include_router(agent_v2.router)  # NEW: /api/v2/* - TRUE AI Agent
 app.include_router(autonomous.router)  # Legacy
 app.include_router(chat.router)  # Legacy
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
