@@ -84,6 +84,7 @@ class Session:
     messages: List[Message] = field(default_factory=list)
     current_task: Optional[Task] = None
     user_data: Dict[str, Any] = field(default_factory=dict)
+    last_meeting: Optional[Dict[str, Any]] = None  # Store last meeting for "same as before" context
 
 
 # =============================================================================
@@ -192,31 +193,48 @@ async def product_search(query: str) -> Dict:
 
 
 # =============================================================================
-# EMAIL SENDER - Real SMTP
+# EMAIL SENDER - Using Gmail OAuth Plugin
 # =============================================================================
+_email_plugin = None
+
+def get_email_plugin():
+    """Get Gmail OAuth plugin instance (singleton)"""
+    global _email_plugin
+    if _email_plugin is None:
+        from .gmail_oauth_plugin import GmailOAuthPlugin
+        _email_plugin = GmailOAuthPlugin()
+    return _email_plugin
+
 async def send_email_real(to: str, subject: str, body: str) -> Dict:
-    """Actually send email via SMTP"""
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
-        return {
-            "success": False,
-            "message": "⚠️ Email not configured. Set SMTP_EMAIL and SMTP_PASSWORD in environment."
-        }
-    
+    """Send email using Gmail OAuth plugin"""
     try:
-        msg = MIMEMultipart()
-        msg['From'] = SMTP_EMAIL
-        msg['To'] = to
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'html'))
-        
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg)
-        
-        return {"success": True, "message": f"✅ Email sent to {to}!"}
-        
+        plugin = get_email_plugin()
+        result = await plugin.execute(
+            {"action": "send_email", "parameters": {"to": to, "subject": subject, "body": body}},
+            {}
+        )
+        if result.get("status") == "completed":
+            return {"success": True, "message": f"✅ Email sent to {to}!"}
+        else:
+            return {"success": False, "message": result.get("result", "Email failed")}
     except Exception as e:
+        # Fallback to SMTP if OAuth fails
+        if SMTP_EMAIL and SMTP_PASSWORD:
+            try:
+                msg = MIMEMultipart()
+                msg['From'] = SMTP_EMAIL
+                msg['To'] = to
+                msg['Subject'] = subject
+                msg.attach(MIMEText(body, 'html'))
+                
+                with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                    server.starttls()
+                    server.login(SMTP_EMAIL, SMTP_PASSWORD)
+                    server.send_message(msg)
+                
+                return {"success": True, "message": f"✅ Email sent to {to}!"}
+            except:
+                pass
         return {"success": False, "message": f"Email failed: {str(e)}"}
 
 
@@ -445,6 +463,37 @@ For tasks: Execute them, don't just talk about them."""
     
     async def _collect_info(self, session: Session, task: Task, user_message: str) -> Dict[str, Any]:
         """Collect missing information from user"""
+        lower_msg = user_message.lower().strip()
+        
+        # Handle "same as before" - use previous meeting context
+        if "same as before" in lower_msg or "same" in lower_msg:
+            if session.last_meeting:
+                # Copy details from last meeting
+                if "time" in task.missing_info and session.last_meeting.get("time"):
+                    task.plan["time"] = session.last_meeting["time"]
+                    task.missing_info = [f for f in task.missing_info if f != "time"]
+                if "title" in task.missing_info and session.last_meeting.get("title"):
+                    task.plan["title"] = session.last_meeting["title"]
+                    task.missing_info = [f for f in task.missing_info if f != "title"]
+                if "participants" in task.missing_info and session.last_meeting.get("participants"):
+                    task.plan["participants"] = session.last_meeting["participants"]
+                    task.missing_info = [f for f in task.missing_info if f != "participants"]
+                
+                message = f"Got it! Using previous meeting details: '{session.last_meeting.get('title')}' at {session.last_meeting.get('time')}"
+                session.messages.append(Message(role=MessageType.AI, content=message))
+                
+                if not task.missing_info:
+                    task.status = TaskStatus.CONFIRM
+                    return await self._ask_confirmation(session, task)
+                
+                return {
+                    "message": message,
+                    "type": "task",
+                    "status": "need_info",
+                    "need": task.missing_info,
+                    "task_id": task.id
+                }
+        
         # Use AI to extract the info from user's message
         context = f"""
 The user is providing information for a {task.type} task.
@@ -489,8 +538,23 @@ Extract the provided information and respond with JSON:
         elif task.type == "meeting":
             participants = task.plan.get('participants', [])
             if isinstance(participants, str):
-                participants = [participants]
-            summary = f"Schedule meeting '{task.plan.get('title', 'Meeting')}' with {', '.join(participants)} at {task.plan.get('time')}"
+                participants = [p.strip() for p in participants.split(",")]
+            
+            # Format participant list properly
+            participant_names = []
+            for p in participants:
+                if "@" in p:
+                    # Extract name from email (before @)
+                    name = p.split("@")[0]
+                    participant_names.append(f"{name} ({p})")
+                else:
+                    participant_names.append(p)
+            
+            participant_str = ", ".join(participant_names) if participant_names else "participants"
+            time_str = task.plan.get('time', 'TBD')
+            title = task.plan.get('title', 'Meeting')
+            
+            summary = f"Schedule meeting '{title}' with {participant_str} at {time_str}"
         elif task.type == "reminder":
             summary = f"Set reminder: '{task.plan.get('text')}' at {task.plan.get('time')}"
         elif task.type == "payment":
@@ -524,6 +588,13 @@ Extract the provided information and respond with JSON:
                 result = await self._send_email(task.plan)
             elif task.type == "meeting":
                 result = await self._create_meeting(task.plan)
+                # Store meeting details for "same as before" context
+                session.last_meeting = {
+                    "title": task.plan.get("title", "Meeting"),
+                    "time": task.plan.get("time", ""),
+                    "participants": task.plan.get("participants", []),
+                    "link": result.get("link", "")
+                }
             elif task.type == "reminder":
                 result = await self._set_reminder(task.plan)
             elif task.type == "payment":
