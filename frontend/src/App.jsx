@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Check, X, Loader, PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { Send, Check, X, Loader, PanelRightOpen, PanelRightClose, Settings } from 'lucide-react'
 import TaskPanel from './components/TaskPanel'
+import OnboardingWizard from './components/OnboardingWizard'
 import './App.css'
 
 const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
@@ -13,11 +14,61 @@ function App() {
   const [pendingConfirm, setPendingConfirm] = useState(false)
   const [showTaskPanel, setShowTaskPanel] = useState(true)
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [hasAIIdentity, setHasAIIdentity] = useState(null) // null = loading, false = no, true = yes
+  const [userId, setUserId] = useState(null)
   const endRef = useRef(null)
+
+  // Generate or load user ID
+  useEffect(() => {
+    let id = localStorage.getItem('super_manager_user_id')
+    if (!id) {
+      id = 'user_' + Math.random().toString(36).substring(2, 15)
+      localStorage.setItem('super_manager_user_id', id)
+    }
+    setUserId(id)
+  }, [])
+
+  // Check if user has AI identity
+  useEffect(() => {
+    if (!userId) return
+
+    const checkIdentity = async () => {
+      try {
+        const res = await fetch(`${API}/api/identity/status/${userId}`)
+        const data = await res.json()
+        setHasAIIdentity(data.has_identity)
+        
+        // Show onboarding for new users (first time only)
+        if (!data.has_identity && !localStorage.getItem('onboarding_skipped')) {
+          setShowOnboarding(true)
+        }
+      } catch (err) {
+        console.error('Failed to check AI identity:', err)
+        setHasAIIdentity(false)
+      }
+    }
+
+    checkIdentity()
+  }, [userId])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const handleOnboardingComplete = (data) => {
+    setHasAIIdentity(true)
+    setShowOnboarding(false)
+    setMessages(prev => [...prev, {
+      role: 'ai',
+      text: `🎉 Great! I now have my own email identity (${data.identity?.email}). I can:\n\n• Send emails on your behalf\n• Sign up for services autonomously\n• Get my own API keys\n\nWhat would you like me to do?`
+    }])
+  }
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false)
+    localStorage.setItem('onboarding_skipped', 'true')
+  }
 
   const send = async (text) => {
     const msg = text || input.trim()
@@ -78,21 +129,43 @@ function App() {
     send(yes ? 'yes' : 'no')
   }
 
+  // Show onboarding wizard if needed
+  if (showOnboarding) {
+    return (
+      <OnboardingWizard 
+        userId={userId}
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+      />
+    )
+  }
+
   return (
     <div className={`app-container ${showTaskPanel ? 'with-panel' : ''}`}>
       <div className="chat-section">
         <header>
           <div className="header-left">
             <h1>Super Manager</h1>
-            <span>AI Assistant</span>
+            <span>AI Assistant {hasAIIdentity && '✓'}</span>
           </div>
-          <button 
-            className="panel-toggle" 
-            onClick={() => setShowTaskPanel(!showTaskPanel)}
-            title={showTaskPanel ? 'Hide Tasks' : 'Show Tasks'}
-          >
-            {showTaskPanel ? <PanelRightClose size={20} /> : <PanelRightOpen size={20} />}
-          </button>
+          <div className="header-actions">
+            {!hasAIIdentity && (
+              <button 
+                className="setup-btn"
+                onClick={() => setShowOnboarding(true)}
+                title="Set up AI Identity"
+              >
+                <Settings size={18} />
+              </button>
+            )}
+            <button 
+              className="panel-toggle" 
+              onClick={() => setShowTaskPanel(!showTaskPanel)}
+              title={showTaskPanel ? 'Hide Tasks' : 'Show Tasks'}
+            >
+              {showTaskPanel ? <PanelRightClose size={20} /> : <PanelRightOpen size={20} />}
+            </button>
+          </div>
         </header>
 
         <main>
@@ -100,6 +173,14 @@ function App() {
             <div className="welcome">
               <h2>Hi! How can I help?</h2>
               <p>Try: "Schedule a meeting", "Send email to...", "Remind me to..."</p>
+              {!hasAIIdentity && (
+                <button 
+                  className="setup-identity-btn"
+                  onClick={() => setShowOnboarding(true)}
+                >
+                  🤖 Set up AI Identity
+                </button>
+              )}
             </div>
           )}
 

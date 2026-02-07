@@ -67,6 +67,29 @@ header span {
   color: #64748b;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-btn {
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid #7c3aed;
+  border-radius: 8px;
+  color: #a78bfa;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.setup-btn:hover {
+  background: rgba(124, 58, 237, 0.3);
+}
+
 .panel-toggle {
   background: transparent;
   border: 1px solid #334155;
@@ -105,6 +128,24 @@ main {
 .welcome h2 {
   color: #e2e8f0;
   margin-bottom: 0.5rem;
+}
+
+.setup-identity-btn {
+  margin-top: 1.5rem;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.setup-identity-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
 }
 
 .msg {

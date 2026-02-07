@@ -62,6 +62,7 @@ logger.info("[DB] Using Supabase PostgreSQL")
 from .routes import agent, plugins, task_agent, tasks, memory, chat, autonomous, streaming, api
 from .routes import agent_v2  # NEW: Agent V2 system
 from .routes import tasks_v2  # NEW: Task Orchestration API
+from .routes import identity  # NEW: AI Identity Management
 from .core.agent import AgentManager
 from .core.ai_providers import get_ai_router
 from .core.realtime import get_connection_manager, websocket_endpoint
@@ -232,6 +233,7 @@ app.include_router(api.router)  # MAIN: /api/chat - clean brain
 app.include_router(streaming.router)  # /api/stream/* - streaming version
 app.include_router(agent_v2.router)  # NEW: /api/v2/* - TRUE AI Agent
 app.include_router(tasks_v2.router)  # NEW: /api/v2/tasks/* - Task Orchestration
+app.include_router(identity.router)  # NEW: /api/identity/* - AI Identity Management
 app.include_router(autonomous.router)  # Legacy
 app.include_router(chat.router)  # Legacy
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
