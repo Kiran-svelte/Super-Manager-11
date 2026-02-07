@@ -225,55 +225,107 @@ async def send_email_real(to: str, subject: str, body: str) -> Dict:
 # =============================================================================
 class AIBrain:
     """
-    Single AI brain that handles everything.
-    Clean flow: understand → plan → ask → confirm → execute → record
+    Versatile AI brain that can handle ANY request.
+    Not limited to predefined tasks - can answer questions, write code,
+    translate, explain concepts, search the web, and more.
     """
     
-    SYSTEM_PROMPT = """You are Super Manager, a helpful AI personal assistant. You can:
-1. Answer questions and chat naturally (like ChatGPT)
-2. Execute real tasks: send emails, schedule meetings, web search, find products, reminders, payments
+    SYSTEM_PROMPT = """You are Super Manager, an intelligent AI assistant that can help with ANYTHING.
 
-CRITICAL RULES:
-- Be natural, friendly, and conversational - not robotic
-- REMEMBER the entire conversation - user's name, previous topics, etc.
-- For casual chat or questions: just answer naturally
-- For tasks: identify what's needed and gather info
+YOU ARE CAPABLE OF:
+1. Answering ANY question - science, math, history, coding, philosophy, advice, etc.
+2. Writing - code, emails, essays, poems, stories, summaries, translations
+3. Explaining concepts in simple terms
+4. Solving problems step by step
+5. Having natural conversations and remembering context
+6. Web search for current information (news, prices, latest updates)
+7. Executing real-world tasks (email, meetings, payments)
 
-When user wants a TASK, respond with JSON:
-{
-    "type": "task",
-    "task_type": "email|meeting|reminder|payment|search|shopping|other",
-    "understood": "what you understood",
-    "have": {"field": "value"},
-    "need": ["missing required fields"],
-    "message": "your friendly response"
-}
+RESPONSE FORMAT - Choose based on what's needed:
 
-Task types and required fields:
-- email: to (email), subject, body
-- meeting: title, participants (emails), time
-- reminder: text, time
-- payment: amount, to (upi_id/email/phone)
-- search: query
-- shopping: product, optional: budget, size, color, style
-
-For QUESTIONS or CHAT, respond with JSON:
+For DIRECT ANSWERS (questions, explanations, writing, advice, coding, math, etc.):
 {
     "type": "answer",
-    "message": "your conversational answer"
+    "message": "your helpful, detailed answer",
+    "search_needed": false
 }
 
-MEMORY RULES:
-- If user says their name, acknowledge it and remember it
-- If asked about previous conversation, refer to actual chat history
-- Be honest if you don't know something from history
-- Use context from conversation naturally
+When you NEED to search the web for current/specific information:
+{
+    "type": "answer", 
+    "message": "brief context about what you're searching for",
+    "search_needed": true,
+    "search_query": "specific search query"
+}
 
-Examples:
-User: "Hi, my name is Kiran" → {"type": "answer", "message": "Nice to meet you, Kiran! How can I help you today?"}
-User: "What's the crypto market like?" → {"type": "answer", "message": "The crypto market has been volatile recently. Bitcoin and Ethereum remain the top cryptocurrencies. Would you like me to search for the latest news?"}
-User: "Find me white sneakers under 2000" → {"type": "task", "task_type": "shopping", "understood": "find white sneakers under 2000", "have": {"product": "white sneakers", "color": "white", "budget": "2000"}, "need": [], "message": "Let me find white sneakers under ₹2000 for you!"}
-User: "Search crypto news" → {"type": "task", "task_type": "search", "understood": "search for crypto news", "have": {"query": "crypto news today"}, "need": [], "message": "Searching for crypto news..."}
+For ACTIONS that require external execution (email, meeting, payment):
+{
+    "type": "task",
+    "task_type": "email|meeting|reminder|payment|search|shopping|custom",
+    "understood": "what you understood",
+    "have": {"collected info"},
+    "need": ["missing required info"],
+    "message": "your response"
+}
+
+CRITICAL GUIDELINES:
+
+1. BE HELPFUL FOR EVERYTHING:
+   - Code questions? Write the code with explanations
+   - Math problems? Solve step by step
+   - Translation? Translate directly
+   - Writing help? Write it for them
+   - Advice? Give thoughtful advice
+   - Explanations? Explain clearly with examples
+
+2. USE WEB SEARCH SMARTLY:
+   - For current news, prices, latest updates → search
+   - For factual knowledge you already know → just answer
+   - For specific products, links, live data → search
+   - Don't search for basic questions you can answer
+
+3. REMEMBER CONVERSATION:
+   - User's name, preferences, previous topics
+   - Refer back to earlier parts of chat naturally
+   - Build on context from the conversation
+
+4. TASK EXECUTION:
+   - email: need to, subject, body
+   - meeting: need title, participants, time  
+   - shopping: search for products with links
+   - payment: generate UPI link
+   - For new/custom tasks: be creative with available tools
+
+5. BE NATURAL:
+   - Don't be robotic or overly formal
+   - Give complete, useful answers
+   - Ask clarifying questions only when truly necessary
+   - Default to being helpful rather than asking
+
+EXAMPLES:
+
+User: "Explain quantum computing simply"
+→ {"type": "answer", "message": "Imagine a regular computer bit is like a light switch - it's either ON (1) or OFF (0). A quantum bit (qubit) is like a dimmer switch that can be partially on, partially off, or even both at once! This is called 'superposition'...[full explanation]", "search_needed": false}
+
+User: "Write a Python function to find prime numbers"
+→ {"type": "answer", "message": "Here's a Python function to find prime numbers:\n\n```python\ndef find_primes(n):\n    primes = []\n    for num in range(2, n+1):\n        is_prime = True\n        for i in range(2, int(num**0.5)+1):\n            if num % i == 0:\n                is_prime = False\n                break\n        if is_prime:\n            primes.append(num)\n    return primes\n```\n\nThis uses trial division...", "search_needed": false}
+
+User: "What's the latest news on AI?"
+→ {"type": "answer", "message": "Let me search for the latest AI news for you.", "search_needed": true, "search_query": "latest AI news today 2024"}
+
+User: "Translate 'Hello, how are you?' to Hindi"
+→ {"type": "answer", "message": "Here's the translation:\n\n**Hindi:** नमस्ते, आप कैसे हैं? (Namaste, aap kaise hain?)\n\nBreaking it down:\n- नमस्ते (Namaste) = Hello\n- आप (aap) = you (formal)\n- कैसे (kaise) = how\n- हैं (hain) = are", "search_needed": false}
+
+User: "I need to book a flight to Delhi"
+→ {"type": "answer", "message": "I can help you find flights to Delhi! Here are the best booking sites:\n\n✈️ **Flight Booking Sites:**\n- MakeMyTrip: makemytrip.com\n- Goibibo: goibibo.com  \n- Cleartrip: cleartrip.com\n- Google Flights: google.com/flights\n\nWould you like me to search for current flight prices and deals to Delhi?", "search_needed": false}
+
+User: "My name is Kiran"
+→ {"type": "answer", "message": "Nice to meet you, Kiran! I'll remember that. How can I help you today?", "search_needed": false}
+
+User: "What did we talk about first?"
+→ [Look at conversation history and answer accurately]
+
+Remember: You're not limited to predefined tasks. Be creative, helpful, and capable of handling ANY request intelligently!
 """
 
     def __init__(self):
@@ -308,10 +360,34 @@ User: "Search crypto news" → {"type": "task", "task_type": "search", "understo
         if parsed.get("type") == "task":
             return await self._start_task(session, parsed)
         else:
-            # Just an answer
-            message = parsed.get("message", ai_response)
+            # Check if AI wants us to search
+            if parsed.get("search_needed") and parsed.get("search_query"):
+                search_query = parsed.get("search_query")
+                search_results = await web_search(search_query, 5)
+                
+                if search_results and "error" not in search_results[0]:
+                    # Format search results
+                    formatted = []
+                    for i, r in enumerate(search_results, 1):
+                        title = r.get('title', 'No title')
+                        url = r.get('url', '')
+                        snippet = r.get('snippet', '')[:120]
+                        formatted.append(f"{i}. **{title}**\n   🔗 {url}\n   {snippet}...")
+                    
+                    # Call AI again with search results to give a better answer
+                    search_context = f"\n\nWEB SEARCH RESULTS for '{search_query}':\n" + "\n\n".join(formatted)
+                    search_context += "\n\nNow provide a helpful answer using these search results. Summarize the key information and include relevant links."
+                    
+                    followup_response = await self._call_ai(session, search_context)
+                    followup_parsed = self._parse_response(followup_response)
+                    message = followup_parsed.get("message", followup_response)
+                else:
+                    message = parsed.get("message", ai_response) + "\n\n(Search returned no results. Answering from knowledge.)"
+            else:
+                message = parsed.get("message", ai_response)
+            
             session.messages.append(Message(role=MessageType.AI, content=message))
-            return {"message": message, "type": "answer"}
+            return {"message": message, "type": "answer", "session_id": session_id}
     
     async def _call_ai(self, session: Session, extra_context: str = "") -> str:
         """Call Groq API with full conversation context"""
@@ -685,21 +761,74 @@ Extract the provided information and respond with JSON:
         }
     
     async def _handle_other_task(self, plan: Dict, task_type: str) -> Dict:
-        """Handle unknown task types intelligently"""
-        # Try to search for relevant information
-        search_query = f"{task_type} {' '.join(str(v) for v in plan.values())}"[:100]
-        results = await web_search(search_query, 3)
+        """Handle custom/unknown task types intelligently using AI + search"""
         
+        # Build context about what user wants
+        task_description = f"{task_type}: {json.dumps(plan)}"
+        
+        # First, search for relevant information
+        search_query = f"{task_type} {' '.join(str(v) for v in plan.values() if v)}"[:100]
+        results = await web_search(search_query, 5)
+        
+        search_info = ""
         if results and "error" not in results[0]:
-            links = "\n".join([f"• {r.get('title', 'Link')[:40]}: {r.get('url', '')}" for r in results])
+            search_info = "\n\nRelevant web results:\n"
+            for r in results:
+                search_info += f"- {r.get('title', '')}: {r.get('url', '')}\n  {r.get('snippet', '')[:100]}\n"
+        
+        # Ask AI how to best help with this task
+        context = f"""
+The user wants to do a custom task: {task_description}
+
+{search_info}
+
+Think about how to best help the user with this. Options:
+1. If it's something that needs external services (flights, hotels, food delivery), provide helpful links and guidance
+2. If it's information-seeking, summarize what you found
+3. If it's something you can help with directly (writing, explaining, calculating), just do it
+4. If you truly can't help, explain why and suggest alternatives
+
+Respond with a helpful, complete answer. Don't just say you can't do it - be creative and useful!
+Format: {{"type": "answer", "message": "your helpful response"}}
+"""
+        
+        try:
+            response = await self.client.post(
+                GROQ_URL,
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+                json={
+                    "model": GROQ_MODEL,
+                    "messages": [
+                        {"role": "system", "content": self.SYSTEM_PROMPT},
+                        {"role": "user", "content": context}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 1000
+                }
+            )
+            data = response.json()
+            
+            if "choices" in data and data["choices"]:
+                ai_response = data["choices"][0]["message"]["content"]
+                parsed = self._parse_response(ai_response)
+                return {
+                    "success": True,
+                    "message": parsed.get("message", ai_response)
+                }
+        except:
+            pass
+        
+        # Fallback with search results
+        if results and "error" not in results[0]:
+            links = "\n".join([f"• **{r.get('title', 'Link')[:50]}**\n  🔗 {r.get('url', '')}" for r in results[:4]])
             return {
                 "success": True,
-                "message": f"I found some relevant information for '{task_type}':\n\n{links}\n\nNote: I can't directly execute this, but these resources might help!"
+                "message": f"Here's what I found for '{task_type}':\n\n{links}\n\nLet me know if you need more specific help!"
             }
         
         return {
-            "success": False,
-            "message": f"I can't directly execute '{task_type}' tasks yet. I can help with:\n• Email\n• Meetings\n• Web search\n• Product shopping\n• Reminders\n• Payments\n\nWould you like help with one of these instead?"
+            "success": True,
+            "message": f"I'd be happy to help with '{task_type}'! Could you tell me more about what you need? I can:\n\n• Search for information\n• Write or explain things\n• Find products or services\n• Send emails or schedule meetings\n• Answer questions\n\nWhat specifically would be most helpful?"
         }
 
 
