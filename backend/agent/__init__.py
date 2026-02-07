@@ -8,19 +8,24 @@ A TRUE AI agent that:
 - Uses real integrations (Gmail, Calendar, Zoom, Telegram, etc.)
 
 This is NOT a chatbot. This is a digital human that works for you.
+
+Supabase URL: https://hpqmcdygbjdmvxfmvucf.supabase.co
 """
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 __author__ = "Super Manager AI"
 
-from .core import Agent, AgentConfig
-from .memory import Memory, UserProfile
-from .executor import ActionExecutor
+from .core import Agent, AgentConfig, get_agent
+from .memory import Memory, UserProfile, get_memory
+from .executor import ActionExecutor, get_executor
 
 __all__ = [
     "Agent",
-    "AgentConfig", 
+    "AgentConfig",
+    "get_agent",
     "Memory",
     "UserProfile",
-    "ActionExecutor"
+    "get_memory",
+    "ActionExecutor",
+    "get_executor"
 ]
