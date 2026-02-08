@@ -60,14 +60,18 @@ export default function AISettings({ userId, onClose, onSave }) {
       }
 
       // Get service accounts
-      const accountsRes = await fetch(`${API}/api/identity/accounts/${userId}`)
-      const accountsData = await accountsRes.json()
-      setServiceAccounts(accountsData.accounts || [])
+      const accountsRes = await fetch(`${API}/api/identity/services/${userId}`)
+      if (accountsRes.ok) {
+        const accountsData = await accountsRes.json()
+        setServiceAccounts(accountsData.services || [])
+      }
 
       // Get available capabilities
       const capsRes = await fetch(`${API}/api/identity/task/capabilities`)
-      const capsData = await capsRes.json()
-      setCapabilities(capsData.capabilities || [])
+      if (capsRes.ok) {
+        const capsData = await capsRes.json()
+        setCapabilities(capsData.capabilities || [])
+      }
       
     } catch (err) {
       console.error('Failed to load settings:', err)

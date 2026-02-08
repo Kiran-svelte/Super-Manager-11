@@ -393,11 +393,10 @@ class AIIdentityManager:
                 result = self.supabase.table("ai_identities")\
                     .select("*")\
                     .eq("user_id", user_id)\
-                    .single()\
                     .execute()
                 
-                if result.data:
-                    data = result.data
+                if result.data and len(result.data) > 0:
+                    data = result.data[0]
                     identity = AIIdentity(
                         id=data["id"],
                         user_id=data["user_id"],

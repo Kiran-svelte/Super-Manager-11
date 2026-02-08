@@ -114,26 +114,35 @@ async def setup_ai_identity(request: SetupIdentityRequest):
 async def get_identity_status(user_id: str):
     """Get the status of user's AI identity"""
     
-    manager = get_identity_manager()
-    identity = await manager.get_identity(user_id)
-    
-    if not identity:
+    try:
+        manager = get_identity_manager()
+        identity = await manager.get_identity(user_id)
+        
+        if not identity:
+            return {
+                "has_identity": False,
+                "message": "No AI identity set up. Create a Gmail for your AI first."
+            }
+        
+        return {
+            "has_identity": True,
+            "identity": {
+                "email": identity.email,
+                "display_name": identity.display_name,
+                "status": identity.status.value,
+            },
+            "capabilities": {
+                "can_send_email": identity.can_send_email,
+                "can_read_email": identity.can_read_email,
+                "can_signup_services": identity.can_signup_services
+            }
+        }
+    except Exception as e:
+        # Return a proper response instead of crashing
         return {
             "has_identity": False,
-            "message": "No AI identity set up. Create a Gmail for your AI first."
+            "message": f"Error checking identity: {str(e)}"
         }
-    
-    return {
-        "has_identity": True,
-        "email": identity.email,
-        "display_name": identity.display_name,
-        "status": identity.status.value,
-        "capabilities": {
-            "can_send_email": identity.can_send_email,
-            "can_read_email": identity.can_read_email,
-            "can_signup_services": identity.can_signup_services
-        }
-    }
 
 
 @router.post("/verify")
@@ -287,16 +296,20 @@ async def store_service_account(request: StoreServiceAccountRequest):
 async def list_service_accounts(user_id: str):
     """List all service accounts for a user's AI"""
     
-    manager = get_identity_manager()
-    identity = await manager.get_identity(user_id)
-    
-    if not identity:
-        return {"services": []}
-    
-    signup = ServiceSignup(identity.email, "")
-    services = await signup.list_service_accounts(user_id)
-    
-    return {"services": services}
+    try:
+        manager = get_identity_manager()
+        identity = await manager.get_identity(user_id)
+        
+        if not identity:
+            return {"services": []}
+        
+        signup = ServiceSignup(identity.email, "")
+        services = await signup.list_service_accounts(user_id)
+        
+        return {"services": services}
+    except Exception as e:
+        print(f"[SERVICE LIST ERROR] {str(e)}")
+        return {"services": [], "error": str(e)}
 
 
 @router.get("/services/{user_id}/{service_name}")
