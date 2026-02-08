@@ -32,7 +32,6 @@ load_dotenv()
 # Import browser automation for service signups
 try:
     from agent.browser_automation import ServiceSignupAutomation
-    from agent.gmail_reader import get_gmail_reader
     BROWSER_AUTOMATION_AVAILABLE = True
 except ImportError:
     BROWSER_AUTOMATION_AVAILABLE = False
@@ -828,25 +827,23 @@ Extract the provided information and respond with JSON:
             }
         
         try:
-            # Get AI identity email and password from environment or generate
+            # Get AI identity email from environment
             ai_email = os.getenv("AI_EMAIL", "traderlighter11@gmail.com")
             ai_password = os.getenv("AI_PASSWORD", "SecureAI2024!")
             
-            # Get Gmail reader for verification emails
-            gmail_reader = get_gmail_reader()
+            # Create automation instance with email and password
+            automation = ServiceSignupAutomation(email=ai_email, password=ai_password)
             
-            # Create automation instance
-            automation = ServiceSignupAutomation(gmail_reader)
+            # Sign up for the service (user_id is used for tracking)
+            user_id = f"ai-agent-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            result = await automation.signup(service, user_id)
             
-            # Sign up for the service
-            result = await automation.signup_for_service(service, ai_email, ai_password)
-            
-            if result.get("success"):
-                api_key = result.get("api_key", "")
+            if result.success:
+                api_key = result.api_key or ""
                 if api_key:
                     return {
                         "success": True,
-                        "message": f"✅ Successfully signed up for {service}!\n\n🔑 API Key: `{api_key[:20]}...{api_key[-5:]}` (truncated for security)\n\nThe full API key has been stored securely.",
+                        "message": f"✅ Successfully signed up for {service}!\n\n🔑 API Key: `{api_key[:20]}...{api_key[-5:] if len(api_key) > 25 else ''}` (truncated for security)\n\nThe full API key has been stored securely.",
                         "api_key": api_key,
                         "service": service
                     }
@@ -857,7 +854,7 @@ Extract the provided information and respond with JSON:
                         "service": service
                     }
             else:
-                error = result.get("error", "Unknown error")
+                error = result.message or "Unknown error"
                 return {
                     "success": False,
                     "message": f"❌ Could not complete signup for {service}: {error}"
