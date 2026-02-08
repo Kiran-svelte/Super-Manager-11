@@ -156,6 +156,7 @@ class GmailManager:
     SMTP_PORT = 587
     IMAP_HOST = "imap.gmail.com"
     IMAP_PORT = 993
+    SMTP_TIMEOUT = 10  # seconds
     
     def __init__(self, email: str, password: str):
         self.email = email
@@ -166,13 +167,16 @@ class GmailManager:
     async def verify_credentials(self) -> Tuple[bool, str]:
         """Verify Gmail credentials work"""
         try:
-            # Try SMTP connection
-            with smtplib.SMTP(self.SMTP_HOST, self.SMTP_PORT) as server:
-                server.starttls()
-                server.login(self.email, self.password)
+            # Try SMTP connection with timeout
+            server = smtplib.SMTP(self.SMTP_HOST, self.SMTP_PORT, timeout=self.SMTP_TIMEOUT)
+            server.starttls()
+            server.login(self.email, self.password)
+            server.quit()
             return True, "Credentials verified successfully"
         except smtplib.SMTPAuthenticationError:
             return False, "Invalid credentials. Make sure you're using an App Password, not your regular password."
+        except TimeoutError:
+            return False, "Connection timed out. Please try again."
         except Exception as e:
             return False, f"Connection error: {str(e)}"
     
