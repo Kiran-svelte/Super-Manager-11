@@ -680,8 +680,8 @@ def get_task_planner() -> TaskPlanner:
         # Try to get Supabase client
         supabase = None
         try:
-            from backend.database_supabase import get_supabase_client
-            supabase = get_supabase_client()
+            from db.supabase_client import get_supabase
+            supabase = get_supabase()
         except:
             pass
         
