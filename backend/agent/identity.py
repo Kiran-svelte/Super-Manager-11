@@ -401,7 +401,6 @@ class AIIdentityManager:
                     "user_id": user_id,
                     "email": email,
                     "display_name": display_name,
-                    "auth_type": auth_type.value,
                     "encrypted_password": encrypted_password,
                     "status": IdentityStatus.ACTIVE.value,
                     "can_send_email": True,
@@ -414,9 +413,10 @@ class AIIdentityManager:
         
         # Cache
         self._identities[user_id] = identity
+        gmail = GmailManager(email, password)
         self._gmail_managers[user_id] = gmail
         
-        return identity, "AI identity created and verified successfully!"
+        return identity, "AI identity saved successfully! Credentials will be verified on first use."
     
     async def get_identity(self, user_id: str) -> Optional[AIIdentity]:
         """Get AI identity for a user"""
