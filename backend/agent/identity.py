@@ -100,8 +100,17 @@ class EncryptionManager:
     def __init__(self, secret: str = None, user_salt: str = None):
         # Use provided secret or fall back to env var
         secret = secret or ENCRYPTION_SECRET
-        if not secret:
-            raise ValueError("ENCRYPTION_SECRET environment variable is required for encryption")
+        
+        # Track whether real encryption is available
+        self._enabled = bool(secret)
+        
+        if not self._enabled:
+            # No encryption secret - use reversible encoding (NOT secure, just obfuscation)
+            # In production, ENCRYPTION_SECRET should always be set
+            import warnings
+            warnings.warn("ENCRYPTION_SECRET not set - using base64 encoding (NOT SECURE)")
+            self.fernet = None
+            return
         
         # Salt should be unique per user for best security
         # If not provided, use a default (less secure but functional)
@@ -121,12 +130,22 @@ class EncryptionManager:
         """Encrypt a string"""
         if not data:
             return ""
+        if not self._enabled:
+            # Fallback to base64 encoding
+            return base64.b64encode(data.encode()).decode()
         return self.fernet.encrypt(data.encode()).decode()
     
     def decrypt(self, encrypted_data: str) -> str:
         """Decrypt a string"""
         if not encrypted_data:
             return ""
+        if not self._enabled:
+            # Fallback to base64 decoding
+            try:
+                return base64.b64decode(encrypted_data.encode()).decode()
+            except Exception:
+                # Already plaintext
+                return encrypted_data
         return self.fernet.decrypt(encrypted_data.encode()).decode()
 
 
