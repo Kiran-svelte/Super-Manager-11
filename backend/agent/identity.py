@@ -166,19 +166,33 @@ class GmailManager:
     
     async def verify_credentials(self) -> Tuple[bool, str]:
         """Verify Gmail credentials work"""
+        import concurrent.futures
+        
+        def _verify():
+            try:
+                # Try SMTP connection with timeout
+                server = smtplib.SMTP(self.SMTP_HOST, self.SMTP_PORT, timeout=self.SMTP_TIMEOUT)
+                server.starttls()
+                server.login(self.email, self.password)
+                server.quit()
+                return True, "Credentials verified successfully"
+            except smtplib.SMTPAuthenticationError:
+                return False, "Invalid credentials. Make sure you're using an App Password, not your regular password."
+            except TimeoutError:
+                return False, "Connection timed out. Please try again."
+            except Exception as e:
+                return False, f"Connection error: {str(e)}"
+        
+        # Run in executor to avoid blocking
+        loop = asyncio.get_event_loop()
         try:
-            # Try SMTP connection with timeout
-            server = smtplib.SMTP(self.SMTP_HOST, self.SMTP_PORT, timeout=self.SMTP_TIMEOUT)
-            server.starttls()
-            server.login(self.email, self.password)
-            server.quit()
-            return True, "Credentials verified successfully"
-        except smtplib.SMTPAuthenticationError:
-            return False, "Invalid credentials. Make sure you're using an App Password, not your regular password."
-        except TimeoutError:
-            return False, "Connection timed out. Please try again."
-        except Exception as e:
-            return False, f"Connection error: {str(e)}"
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, _verify), 
+                timeout=15.0
+            )
+            return result
+        except asyncio.TimeoutError:
+            return False, "Verification timed out. Please check your credentials and try again."
     
     async def send_email(
         self, 
