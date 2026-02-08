@@ -363,19 +363,20 @@ class AIIdentityManager:
         email: str,
         password: str,
         display_name: str = "AI Assistant",
-        auth_type: AuthType = AuthType.APP_PASSWORD
+        auth_type: AuthType = AuthType.APP_PASSWORD,
+        skip_verification: bool = True  # Skip verification for faster setup
     ) -> Tuple[Optional[AIIdentity], str]:
         """Create a new AI identity for a user"""
+        
+        # Basic email validation
+        if not email or "@" not in email:
+            return None, "Invalid email address"
         
         # Encrypt the password
         encrypted_password = self.encryption.encrypt(password)
         
-        # Verify credentials first
-        gmail = GmailManager(email, password)
-        success, message = await gmail.verify_credentials()
-        
-        if not success:
-            return None, message
+        # Skip verification for faster setup - will verify on first email send
+        # If user wants to verify immediately, can call /verify endpoint
         
         # Create identity
         identity_id = str(uuid.uuid4())
