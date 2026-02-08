@@ -346,15 +346,25 @@ class AIIdentityManager:
     """Manages AI identities and their operations"""
     
     def __init__(self):
-        self.encryption = EncryptionManager()
+        try:
+            self.encryption = EncryptionManager()
+        except Exception as e:
+            print(f"[IDENTITY INIT ERROR] Encryption failed: {e}")
+            raise
+        
         self._identities: Dict[str, AIIdentity] = {}
         self._gmail_managers: Dict[str, GmailManager] = {}
         
         # Initialize Supabase client
         try:
             from supabase import create_client
-            self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        except:
+            if SUPABASE_URL and SUPABASE_KEY:
+                self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+            else:
+                print("[IDENTITY INIT] Supabase not configured")
+                self.supabase = None
+        except Exception as e:
+            print(f"[IDENTITY INIT ERROR] Supabase failed: {e}")
             self.supabase = None
     
     async def create_identity(

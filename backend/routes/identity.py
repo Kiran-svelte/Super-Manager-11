@@ -81,8 +81,11 @@ async def setup_ai_identity(request: SetupIdentityRequest):
     
     Returns setup status and capabilities unlocked.
     """
+    import traceback
     try:
+        print(f"[IDENTITY SETUP] Starting for user {request.user_id}")
         manager = get_identity_manager()
+        print(f"[IDENTITY SETUP] Got manager, creating identity")
         
         identity, message = await manager.create_identity(
             user_id=request.user_id,
@@ -91,6 +94,7 @@ async def setup_ai_identity(request: SetupIdentityRequest):
             display_name=request.display_name,
             auth_type=AuthType.APP_PASSWORD
         )
+        print(f"[IDENTITY SETUP] Identity created, success={identity is not None}")
         
         if not identity:
             raise HTTPException(status_code=400, detail=message)
@@ -109,7 +113,11 @@ async def setup_ai_identity(request: SetupIdentityRequest):
                 }
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"[IDENTITY SETUP ERROR] {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Setup failed: {str(e)}")
 
 
