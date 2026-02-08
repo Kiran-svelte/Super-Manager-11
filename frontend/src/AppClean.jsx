@@ -6,8 +6,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { 
   Send, Check, X, Loader2, Bot, User, MessageSquare,
   Search, Mail, Calendar, ShoppingCart, AlertCircle,
-  Shield, Lock, Zap
+  Shield, Lock, Zap, Settings
 } from 'lucide-react'
+import AISettings from './components/AISettings'
 import './styles/clean-theme.css'
 
 const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
@@ -177,10 +178,22 @@ function App() {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [userId, setUserId] = useState(null)
   
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const abortRef = useRef(null)
+
+  // Generate or load user ID
+  useEffect(() => {
+    let id = localStorage.getItem('super_manager_user_id')
+    if (!id) {
+      id = 'user_' + Math.random().toString(36).substring(2, 15)
+      localStorage.setItem('super_manager_user_id', id)
+    }
+    setUserId(id)
+  }, [])
 
   // Auto-scroll
   useEffect(() => {
@@ -277,9 +290,18 @@ function App() {
             <span>Your AI Assistant</span>
           </div>
         </div>
-        <div className="header-status">
-          <span className="status-indicator" />
-          Online
+        <div className="header-actions">
+          <button 
+            className="settings-btn" 
+            onClick={() => setShowSettings(true)}
+            title="AI Settings"
+          >
+            <Settings size={18} />
+          </button>
+          <div className="header-status">
+            <span className="status-indicator" />
+            Online
+          </div>
         </div>
       </header>
 
@@ -347,6 +369,23 @@ function App() {
           <span>AI Powered</span>
         </div>
       </footer>
+
+      {/* AI Settings Modal */}
+      {showSettings && (
+        <AISettings 
+          userId={userId}
+          onClose={() => setShowSettings(false)}
+          onSave={(data) => {
+            setShowSettings(false)
+            // Show success message
+            setMessages(prev => [...prev, {
+              role: 'ai',
+              text: `✅ AI email configured! I can now sign up for services and get API keys autonomously.`,
+              timestamp: new Date().toISOString()
+            }])
+          }}
+        />
+      )}
     </div>
   )
 }
