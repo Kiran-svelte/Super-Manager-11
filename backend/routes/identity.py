@@ -114,6 +114,15 @@ async def setup_ai_identity(request: SetupIdentityRequest):
 async def get_identity_status(user_id: str):
     """Get the status of user's AI identity"""
     
+    import os
+    # Check if encryption is configured
+    if not os.getenv("ENCRYPTION_SECRET"):
+        return {
+            "has_identity": False,
+            "message": "Identity system not configured. ENCRYPTION_SECRET environment variable required.",
+            "setup_required": True
+        }
+    
     try:
         manager = get_identity_manager()
         identity = await manager.get_identity(user_id)
