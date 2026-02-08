@@ -37,15 +37,30 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-# Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hpqmcdygbjdmvxfmvucf.supabase.co")
+# Supabase - REQUIRED in production
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
-# 2Captcha for CAPTCHA solving
-CAPTCHA_API_KEY = os.getenv("CAPTCHA_API_KEY", "3061822dc7a19a701597941c6f00cd85")
+# 2Captcha for CAPTCHA solving - optional
+CAPTCHA_API_KEY = os.getenv("CAPTCHA_API_KEY", "")
 
-# Encryption secret (should be in env in production)
-ENCRYPTION_SECRET = os.getenv("ENCRYPTION_SECRET", "super-manager-secret-key-change-in-production")
+# Encryption secret - REQUIRED in production
+ENCRYPTION_SECRET = os.getenv("ENCRYPTION_SECRET", "")
+
+# Validate required environment variables
+def _validate_env():
+    missing = []
+    if not SUPABASE_URL:
+        missing.append("SUPABASE_URL")
+    if not SUPABASE_KEY:
+        missing.append("SUPABASE_KEY")
+    if not ENCRYPTION_SECRET:
+        missing.append("ENCRYPTION_SECRET")
+    if missing:
+        import warnings
+        warnings.warn(f"Missing environment variables: {', '.join(missing)}. Some features may not work.")
+
+_validate_env()
 
 
 class AuthType(Enum):
@@ -82,12 +97,21 @@ class AIIdentity:
 class EncryptionManager:
     """Handles encryption/decryption of sensitive data"""
     
-    def __init__(self, secret: str = ENCRYPTION_SECRET):
+    def __init__(self, secret: str = None, user_salt: str = None):
+        # Use provided secret or fall back to env var
+        secret = secret or ENCRYPTION_SECRET
+        if not secret:
+            raise ValueError("ENCRYPTION_SECRET environment variable is required for encryption")
+        
+        # Salt should be unique per user for best security
+        # If not provided, use a default (less secure but functional)
+        salt = (user_salt or "super-manager-default").encode()
+        
         # Derive a key from the secret
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=b'super-manager-salt',  # In production, use unique salt per user
+            salt=salt,
             iterations=100000,
         )
         key = base64.urlsafe_b64encode(kdf.derive(secret.encode()))
@@ -95,10 +119,14 @@ class EncryptionManager:
     
     def encrypt(self, data: str) -> str:
         """Encrypt a string"""
+        if not data:
+            return ""
         return self.fernet.encrypt(data.encode()).decode()
     
     def decrypt(self, encrypted_data: str) -> str:
         """Decrypt a string"""
+        if not encrypted_data:
+            return ""
         return self.fernet.decrypt(encrypted_data.encode()).decode()
 
 

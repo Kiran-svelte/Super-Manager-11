@@ -21,7 +21,7 @@ __author__ = "Super Manager AI"
 
 from .core import Agent, AgentConfig, get_agent
 from .memory import Memory, UserProfile, get_memory
-from .executor import ActionExecutor, get_executor
+from .executor import ActionExecutor, get_executor, AIIdentityExecutor, get_ai_executor
 from .orchestrator import TaskOrchestrator, OrchestratedTask, get_orchestrator
 from .scheduler import JobScheduler, get_scheduler, start_scheduler, stop_scheduler
 from .identity import (
@@ -48,6 +48,8 @@ __all__ = [
     "get_memory",
     "ActionExecutor",
     "get_executor",
+    "AIIdentityExecutor",
+    "get_ai_executor",
     "TaskOrchestrator",
     "OrchestratedTask",
     "get_orchestrator",

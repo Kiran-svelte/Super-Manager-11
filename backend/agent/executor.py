@@ -586,12 +586,98 @@ class ActionExecutor:
         self.telegram = TelegramExecutor()
         self.sms = SMSExecutor()
         self.search = SearchExecutor()
+        self._ai_executor = None  # Lazy loaded
     
-    async def execute(self, action_type: str, params: Dict) -> Dict[str, Any]:
+    def _get_ai_executor(self):
+        """Lazy load AI executor to avoid circular imports"""
+        if self._ai_executor is None:
+            from .identity import get_identity_manager
+            self._ai_executor = AIIdentityExecutor()
+        return self._ai_executor
+    
+    async def execute(self, action_type: str, params: Dict, user_id: str = None) -> Dict[str, Any]:
         """Route and execute an action"""
         
         try:
-            if action_type == "send_email":
+            # =================================================================
+            # AI IDENTITY ACTIONS (use AI's own email/credentials)
+            # =================================================================
+            if action_type == "ai_send_email":
+                if not user_id:
+                    return {"success": False, "error": "user_id required for AI actions"}
+                ai_exec = self._get_ai_executor()
+                return await ai_exec.send_email(
+                    user_id=user_id,
+                    to=params.get("to", ""),
+                    subject=params.get("subject", ""),
+                    body=params.get("body", "")
+                )
+            
+            elif action_type == "ai_check_inbox":
+                if not user_id:
+                    return {"success": False, "error": "user_id required for AI actions"}
+                ai_exec = self._get_ai_executor()
+                return await ai_exec.check_inbox(
+                    user_id=user_id,
+                    from_domain=params.get("from_domain"),
+                    limit=params.get("limit", 10)
+                )
+            
+            elif action_type == "ai_wait_verification":
+                if not user_id:
+                    return {"success": False, "error": "user_id required for AI actions"}
+                ai_exec = self._get_ai_executor()
+                return await ai_exec.wait_for_verification_email(
+                    user_id=user_id,
+                    from_domain=params.get("from_domain", ""),
+                    timeout_seconds=params.get("timeout", 120)
+                )
+            
+            elif action_type == "ai_identity_status":
+                if not user_id:
+                    return {"success": False, "error": "user_id required for AI actions"}
+                ai_exec = self._get_ai_executor()
+                return await ai_exec.get_identity_status(user_id)
+            
+            elif action_type == "ai_signup_service":
+                if not user_id:
+                    return {"success": False, "error": "user_id required for AI actions"}
+                ai_exec = self._get_ai_executor()
+                return await ai_exec.signup_for_service(
+                    user_id=user_id,
+                    service_name=params.get("service_name", "")
+                )
+            
+            elif action_type == "ai_store_credentials":
+                if not user_id:
+                    return {"success": False, "error": "user_id required for AI actions"}
+                ai_exec = self._get_ai_executor()
+                return await ai_exec.store_service_credentials(
+                    user_id=user_id,
+                    service_name=params.get("service_name", ""),
+                    api_key=params.get("api_key", ""),
+                    api_secret=params.get("api_secret")
+                )
+            
+            elif action_type == "ai_get_api_key":
+                if not user_id:
+                    return {"success": False, "error": "user_id required for AI actions"}
+                ai_exec = self._get_ai_executor()
+                return await ai_exec.get_service_api_key(
+                    user_id=user_id,
+                    service_name=params.get("service_name", "")
+                )
+            
+            elif action_type == "ai_list_services":
+                if not user_id:
+                    return {"success": False, "error": "user_id required for AI actions"}
+                ai_exec = self._get_ai_executor()
+                return await ai_exec.list_ai_services(user_id)
+            
+            # =================================================================
+            # USER ACTIONS (use system-configured credentials/user's OAuth)
+            # =================================================================
+            elif action_type == "send_email":
                 to = params.get("to", [])
                 if isinstance(to, str):
                     to = [to]
@@ -710,3 +796,273 @@ def get_executor() -> ActionExecutor:
     if _executor is None:
         _executor = ActionExecutor()
     return _executor
+
+
+# =============================================================================
+# AI IDENTITY EXECUTOR
+# Uses the AI's own email identity for autonomous operations
+# =============================================================================
+
+class AIIdentityExecutor:
+    """
+    Executes actions using the AI's own identity.
+    This allows the AI to:
+    - Send emails from its own Gmail
+    - Sign up for services
+    - Verify email accounts
+    - Get API keys
+    """
+    
+    def __init__(self):
+        self._identity_manager = None
+    
+    async def _get_identity_manager(self):
+        """Lazy load identity manager"""
+        if self._identity_manager is None:
+            from .identity import get_identity_manager
+            self._identity_manager = get_identity_manager()
+        return self._identity_manager
+    
+    async def send_email(
+        self,
+        user_id: str,
+        to: str,
+        subject: str,
+        body: str
+    ) -> Dict[str, Any]:
+        """Send email using AI's identity"""
+        manager = await self._get_identity_manager()
+        success, message = await manager.send_email_as_ai(
+            user_id=user_id,
+            to=to,
+            subject=subject,
+            body=body
+        )
+        return {
+            "success": success,
+            "message": message,
+            "from": "ai_identity",
+            "to": to
+        }
+    
+    async def check_inbox(
+        self,
+        user_id: str,
+        from_domain: str = None,
+        limit: int = 10
+    ) -> Dict[str, Any]:
+        """Check AI's email inbox"""
+        manager = await self._get_identity_manager()
+        gmail = await manager.get_gmail_manager(user_id)
+        
+        if not gmail:
+            return {"success": False, "error": "AI identity not configured"}
+        
+        emails = await gmail.read_emails(limit=limit, unread_only=True)
+        
+        # Filter by domain if specified
+        if from_domain:
+            emails = [e for e in emails if from_domain.lower() in e.get("from", "").lower()]
+        
+        return {
+            "success": True,
+            "emails": emails,
+            "count": len(emails)
+        }
+    
+    async def wait_for_verification_email(
+        self,
+        user_id: str,
+        from_domain: str,
+        timeout_seconds: int = 120
+    ) -> Dict[str, Any]:
+        """Wait for and extract verification link/OTP from email"""
+        manager = await self._get_identity_manager()
+        email_data = await manager.check_verification_email(user_id, from_domain)
+        
+        if not email_data:
+            return {
+                "success": False,
+                "error": f"No verification email from {from_domain} found within timeout"
+            }
+        
+        # Try to extract verification link or OTP
+        gmail = await manager.get_gmail_manager(user_id)
+        body = email_data.get("body", "")
+        
+        verification_link = await gmail.extract_verification_link(body)
+        otp = await gmail.extract_otp(body)
+        
+        return {
+            "success": True,
+            "email": email_data,
+            "verification_link": verification_link,
+            "otp": otp
+        }
+    
+    async def get_identity_status(self, user_id: str) -> Dict[str, Any]:
+        """Get AI identity status and capabilities"""
+        manager = await self._get_identity_manager()
+        identity = await manager.get_identity(user_id)
+        
+        if not identity:
+            return {
+                "has_identity": False,
+                "message": "No AI identity configured. Set one up first."
+            }
+        
+        return {
+            "has_identity": True,
+            "email": identity.email,
+            "display_name": identity.display_name,
+            "status": identity.status.value,
+            "can_send_email": identity.can_send_email,
+            "can_read_email": identity.can_read_email,
+            "can_signup_services": identity.can_signup_services
+        }
+    
+    async def signup_for_service(
+        self,
+        user_id: str,
+        service_name: str
+    ) -> Dict[str, Any]:
+        """Initiate signup for a service using AI's identity"""
+        from .service_signup import ServiceSignup, ServiceRegistry
+        
+        # Check if blocked
+        blocked, reason = ServiceRegistry.is_blocked(service_name)
+        if blocked:
+            alternatives = ServiceRegistry.get_service_for_task(
+                ServiceRegistry.get_service_info(service_name).get("category", "general")
+                if ServiceRegistry.get_service_info(service_name) else "general"
+            )
+            return {
+                "success": False,
+                "blocked": True,
+                "reason": reason,
+                "alternatives": alternatives,
+                "needs_user_help": True
+            }
+        
+        # Get AI identity
+        manager = await self._get_identity_manager()
+        identity = await manager.get_identity(user_id)
+        
+        if not identity:
+            return {
+                "success": False,
+                "error": "AI identity required. Set up AI email first."
+            }
+        
+        # Get service info
+        service_info = ServiceRegistry.get_service_info(service_name)
+        if not service_info:
+            return {
+                "success": False,
+                "error": f"Unknown service: {service_name}"
+            }
+        
+        # Return signup instructions (actual browser automation would need a different architecture)
+        return {
+            "success": True,
+            "status": "manual_signup_required",
+            "service": service_name,
+            "signup_url": service_info.get("signup_url") if hasattr(service_info, "get") else None,
+            "ai_email": identity.email,
+            "instructions": f"Sign up at the service website using email: {identity.email}",
+            "capabilities": service_info.get("capabilities", []) if isinstance(service_info, dict) else [],
+            "next_step": "After signup, provide the API key using the store_service_credentials action"
+        }
+    
+    async def store_service_credentials(
+        self,
+        user_id: str,
+        service_name: str,
+        api_key: str,
+        api_secret: str = None
+    ) -> Dict[str, Any]:
+        """Store API credentials for a service the AI signed up for"""
+        from .service_signup import ServiceSignup
+        
+        manager = await self._get_identity_manager()
+        identity = await manager.get_identity(user_id)
+        
+        if not identity:
+            return {"success": False, "error": "AI identity required"}
+        
+        signup = ServiceSignup(identity.email, "")
+        success = await signup.store_service_account(
+            user_id=user_id,
+            ai_identity_id=identity.id,
+            service_name=service_name,
+            api_key=api_key,
+            api_secret=api_secret
+        )
+        
+        return {
+            "success": success,
+            "message": f"Credentials for {service_name} stored securely" if success else "Failed to store credentials"
+        }
+    
+    async def get_service_api_key(
+        self,
+        user_id: str,
+        service_name: str
+    ) -> Dict[str, Any]:
+        """Get API key for a service the AI has credentials for"""
+        from .service_signup import ServiceSignup
+        
+        manager = await self._get_identity_manager()
+        identity = await manager.get_identity(user_id)
+        
+        if not identity:
+            return {"success": False, "error": "AI identity required"}
+        
+        signup = ServiceSignup(identity.email, "")
+        creds = await signup.get_service_credentials(user_id, service_name)
+        
+        if not creds:
+            return {
+                "success": False,
+                "error": f"No credentials found for {service_name}",
+                "suggestion": f"Sign up for {service_name} first using ai_signup_service action"
+            }
+        
+        return {
+            "success": True,
+            "service": service_name,
+            "api_key": creds.get("api_key"),
+            "api_secret": creds.get("api_secret"),
+            "account_email": creds.get("account_email")
+        }
+    
+    async def list_ai_services(self, user_id: str) -> Dict[str, Any]:
+        """List all services the AI has signed up for"""
+        from .service_signup import ServiceSignup
+        
+        manager = await self._get_identity_manager()
+        identity = await manager.get_identity(user_id)
+        
+        if not identity:
+            return {"success": False, "error": "AI identity required", "services": []}
+        
+        signup = ServiceSignup(identity.email, "")
+        services = await signup.list_service_accounts(user_id)
+        
+        return {
+            "success": True,
+            "services": services,
+            "count": len(services)
+        }
+
+
+# Singleton AI executor
+_ai_executor: Optional[AIIdentityExecutor] = None
+
+
+def get_ai_executor() -> AIIdentityExecutor:
+    """Get the AI Identity executor instance"""
+    global _ai_executor
+    if _ai_executor is None:
+        _ai_executor = AIIdentityExecutor()
+    return _ai_executor

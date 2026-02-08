@@ -20,11 +20,11 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 
-# 2Captcha API
-CAPTCHA_API_KEY = os.getenv("CAPTCHA_API_KEY", "3061822dc7a19a701597941c6f00cd85")
+# 2Captcha API (optional for CAPTCHA solving)
+CAPTCHA_API_KEY = os.getenv("CAPTCHA_API_KEY", "")
 
-# Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hpqmcdygbjdmvxfmvucf.supabase.co")
+# Supabase (required)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 
@@ -524,6 +524,23 @@ class ServiceRegistry:
         if service:
             return service.get("blocked", False), service.get("blocked_reason")
         return False, None
+    
+    @classmethod
+    def list_services(cls, category: str = None, include_blocked: bool = False) -> List[str]:
+        """List all available services, optionally filtered by category"""
+        services = []
+        for name, info in cls.SERVICES.items():
+            if category and info.get("category") != category:
+                continue
+            if not include_blocked and info.get("blocked", False):
+                continue
+            services.append(name)
+        return services
+    
+    @classmethod 
+    def list_all(cls) -> Dict[str, Dict]:
+        """List all services with their full info"""
+        return cls.SERVICES.copy()
 
 
 # =============================================================================
@@ -532,9 +549,25 @@ class ServiceRegistry:
 
 _service_signup: Optional[ServiceSignup] = None
 
-def get_service_signup(email: str, password: str) -> ServiceSignup:
-    """Get Service Signup instance"""
+def get_service_signup(email: str = None, password: str = None) -> ServiceSignup:
+    """Get Service Signup instance
+    
+    If email/password not provided, will try to get from identity manager.
+    """
     global _service_signup
+    
+    # If no credentials provided, try to get from identity manager
+    if email is None:
+        try:
+            from .identity import get_identity_manager
+            mgr = get_identity_manager()
+            identity = mgr.identity
+            email = identity.email if identity else "ai@placeholder.com"
+            password = identity.app_password if identity else "placeholder"
+        except Exception:
+            email = "ai@placeholder.com"
+            password = "placeholder"
+    
     if _service_signup is None or _service_signup.email != email:
-        _service_signup = ServiceSignup(email, password)
+        _service_signup = ServiceSignup(email, password or "placeholder")
     return _service_signup
