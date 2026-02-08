@@ -100,8 +100,10 @@ class EncryptionManager:
     def __init__(self, secret: str = None, user_salt: str = None):
         # Use provided secret or fall back to env var
         secret = secret or ENCRYPTION_SECRET
+        self._enabled = bool(secret)
         if not secret:
-            raise ValueError("ENCRYPTION_SECRET environment variable is required for encryption")
+            # Use a default secret for development - NOT SECURE for production
+            secret = "dev-fallback-secret-change-in-production"
         
         # Salt should be unique per user for best security
         # If not provided, use a default (less secure but functional)
@@ -121,6 +123,9 @@ class EncryptionManager:
         """Encrypt a string"""
         if not data:
             return ""
+        if not self._enabled:
+            import warnings
+            warnings.warn("Using fallback encryption - set ENCRYPTION_SECRET for production")
         return self.fernet.encrypt(data.encode()).decode()
     
     def decrypt(self, encrypted_data: str) -> str:
