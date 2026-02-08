@@ -9,6 +9,7 @@ Features:
 - Product search with links
 - Proper conversation memory
 - Smart task execution
+- Automated service signup with browser automation
 """
 import os
 import json
@@ -27,6 +28,14 @@ import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Import browser automation for service signups
+try:
+    from agent.browser_automation import ServiceSignupAutomation
+    from agent.gmail_reader import get_gmail_reader
+    BROWSER_AUTOMATION_AVAILABLE = True
+except ImportError:
+    BROWSER_AUTOMATION_AVAILABLE = False
 
 # =============================================================================
 # CONFIG
@@ -256,32 +265,36 @@ CAPABILITIES (USE THESE PROACTIVELY):
 3. MEETINGS - Create Jitsi video call links + send invites
 4. SHOPPING - Find products with real purchase links
 5. UPI PAYMENTS - Generate payment links
+6. SERVICE SIGNUP - Sign up for online services (groq, together, huggingface, openrouter) and get API keys
 
 ACTION RULES:
 - When user asks to find/search something → DO A SEARCH, provide real links
 - When user asks to buy/shop → SEARCH FOR PRODUCTS with purchase URLs
 - When user asks to send email → COLLECT info and SEND IT
 - When user asks to meet/call → CREATE a meeting link
+- When user asks to sign up for a service → SIGNUP for that service
 - Be CONCISE. Users want results, not essays.
 
 RESPONSE FORMAT (JSON):
 {"type": "answer", "message": "brief response", "search_needed": true, "search_query": "what to search"}
-{"type": "task", "task_type": "email|meeting|payment|shopping", "have": {extracted info}, "need": [missing fields], "message": "confirmation"}
+{"type": "task", "task_type": "email|meeting|payment|shopping|signup", "have": {extracted info}, "need": [missing fields], "message": "confirmation"}
 
 TASK FIELD EXTRACTION:
 - For MEETING: Extract "title", "time", "participants" (as array of emails). Example: {"have": {"title": "Team sync", "time": "4pm", "participants": ["john@email.com"]}, "need": []}
 - For EMAIL: Extract "to" (email), "subject", "body". Example: {"have": {"to": "test@email.com", "subject": "Hello"}, "need": ["body"]}
 - For PAYMENT: Extract "amount", "to", "upi_id". Example: {"have": {"amount": 500, "to": "John"}, "need": ["upi_id"]}
+- For SIGNUP: Extract "service" (service name). Example: {"have": {"service": "groq"}, "need": []}. Available: groq, together, huggingface, openrouter
 
 IMPORTANT: Always extract email addresses into the participants array for meetings!
 
 STRICT RULES:
-🚫 NEVER ask for passwords, API keys, or credentials
+🚫 NEVER ask for passwords, API keys, or credentials - I get them myself
 🚫 NEVER claim you "ordered" or "booked" something - provide links instead
 🚫 NEVER fabricate order IDs or confirmations
 ✅ DO search the web and provide real links
 ✅ DO send emails when you have the info
 ✅ DO create meeting links
+✅ DO sign up for services and get API keys autonomously
 ✅ Keep responses SHORT and actionable
 
 For shopping: Don't just describe products - SEARCH and give PURCHASE LINKS.
@@ -610,6 +623,8 @@ Extract the provided information and respond with JSON:
                 result = await self._search(task.plan)
             elif task.type == "shopping":
                 result = await self._do_shopping(task.plan)
+            elif task.type == "signup":
+                result = await self._signup_for_service(task.plan)
             else:
                 result = await self._handle_other_task(task.plan, task.type)
             
@@ -787,6 +802,72 @@ Extract the provided information and respond with JSON:
             "products": products,
             "reviews": reviews
         }
+    
+    async def _signup_for_service(self, plan: Dict) -> Dict:
+        """Sign up for an online service and get API key using browser automation"""
+        service = plan.get("service", "").lower().strip()
+        
+        available_services = ["groq", "together", "huggingface", "openrouter"]
+        
+        if not service:
+            return {
+                "success": False,
+                "message": f"Which service would you like to sign up for? Available: {', '.join(available_services)}"
+            }
+        
+        if service not in available_services:
+            return {
+                "success": False,
+                "message": f"I can't sign up for '{service}' yet. Available services: {', '.join(available_services)}"
+            }
+        
+        if not BROWSER_AUTOMATION_AVAILABLE:
+            return {
+                "success": False,
+                "message": "Browser automation is not available. Please check the server configuration."
+            }
+        
+        try:
+            # Get AI identity email and password from environment or generate
+            ai_email = os.getenv("AI_EMAIL", "traderlighter11@gmail.com")
+            ai_password = os.getenv("AI_PASSWORD", "SecureAI2024!")
+            
+            # Get Gmail reader for verification emails
+            gmail_reader = get_gmail_reader()
+            
+            # Create automation instance
+            automation = ServiceSignupAutomation(gmail_reader)
+            
+            # Sign up for the service
+            result = await automation.signup_for_service(service, ai_email, ai_password)
+            
+            if result.get("success"):
+                api_key = result.get("api_key", "")
+                if api_key:
+                    return {
+                        "success": True,
+                        "message": f"✅ Successfully signed up for {service}!\n\n🔑 API Key: `{api_key[:20]}...{api_key[-5:]}` (truncated for security)\n\nThe full API key has been stored securely.",
+                        "api_key": api_key,
+                        "service": service
+                    }
+                else:
+                    return {
+                        "success": True,
+                        "message": f"✅ Signed up for {service}! Please check your email for the API key or login to get it from the dashboard.",
+                        "service": service
+                    }
+            else:
+                error = result.get("error", "Unknown error")
+                return {
+                    "success": False,
+                    "message": f"❌ Could not complete signup for {service}: {error}"
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"❌ Signup failed for {service}: {str(e)}"
+            }
     
     async def _handle_other_task(self, plan: Dict, task_type: str) -> Dict:
         """Handle custom/unknown task types intelligently using AI + search"""

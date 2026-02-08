@@ -23,6 +23,8 @@ from ..agent.identity import (
     SensitiveDataHandler
 )
 from ..agent.service_signup import ServiceSignup, ServiceRegistry
+from ..agent.browser_automation import ServiceSignupAutomation
+from ..agent.gmail_reader import get_gmail_reader
 
 router = APIRouter(prefix="/api/identity", tags=["AI Identity"])
 
@@ -157,13 +159,17 @@ async def verify_identity(user_id: str):
 # =============================================================================
 
 @router.post("/services/signup")
-async def signup_for_service(request: SignupServiceRequest):
+async def signup_for_service(request: SignupServiceRequest, background_tasks: BackgroundTasks):
     """
-    Initiate signup for an online service.
+    Initiate signup for an online service using browser automation.
     
-    Returns:
-    - For API-based signup: Credentials if successful
-    - For browser-based signup: Instructions to sign up manually
+    This endpoint:
+    1. Checks if the service is blocked
+    2. Uses browser automation to sign up
+    3. Waits for verification emails
+    4. Extracts and stores API keys
+    
+    Supported services: groq, together, huggingface, openrouter
     """
     
     # Check if service is blocked
@@ -190,16 +196,55 @@ async def signup_for_service(request: SignupServiceRequest):
             detail="Set up AI identity first before signing up for services"
         )
     
-    # Attempt signup
-    signup = ServiceSignup(identity.email, "generated-password")
-    result = await signup.signup_via_api(request.service_name, request.user_id)
+    # Check if service is supported for automated signup
+    automation = ServiceSignupAutomation(identity.email)
+    available_services = automation.get_available_services()
+    
+    if request.service_name.lower() not in available_services:
+        return {
+            "success": False,
+            "service": request.service_name,
+            "message": f"Automated signup not yet available for {request.service_name}. Available: {', '.join(available_services)}",
+            "available_services": available_services
+        }
+    
+    # Run signup automation
+    result = await automation.signup(request.service_name, request.user_id)
+    
+    # Store API key if obtained
+    if result.success and result.api_key:
+        signup = ServiceSignup(identity.email, "")
+        await signup.store_service_account(
+            user_id=request.user_id,
+            ai_identity_id=str(identity.id) if hasattr(identity, 'id') else request.user_id,
+            service_name=request.service_name,
+            api_key=result.api_key,
+            api_secret=result.api_secret,
+            account_email=result.account_email,
+            account_username=result.account_username
+        )
     
     return {
         "success": result.success,
         "service": result.service_name,
         "message": result.message,
         "needs_verification": result.needs_verification,
-        "signup_data": result.additional_data
+        "api_key_obtained": result.api_key is not None,
+        "account_email": result.account_email
+    }
+
+
+@router.get("/services/available")
+async def get_available_services():
+    """
+    Get list of services available for automated signup.
+    """
+    automation = ServiceSignupAutomation("dummy@example.com")
+    available = automation.get_available_services()
+    
+    return {
+        "automated_signup": available,
+        "message": f"{len(available)} services support automated signup"
     }
 
 
@@ -356,6 +401,68 @@ async def get_ai_commitments(user_id: str):
     commitments = await responsible_ai.get_active_commitments()
     
     return {"commitments": commitments}
+
+
+# =============================================================================
+# EMAIL READING ENDPOINTS
+# =============================================================================
+
+@router.get("/email/recent/{user_id}")
+async def get_recent_emails(user_id: str, max_results: int = 10):
+    """
+    Get recent emails from the AI's inbox.
+    
+    Useful for checking verification emails, OTPs, etc.
+    """
+    try:
+        gmail_reader = get_gmail_reader()
+        emails = await gmail_reader.fetch_recent_emails(max_results=max_results)
+        
+        return {
+            "success": True,
+            "emails": [
+                {
+                    "id": e.id,
+                    "subject": e.subject,
+                    "sender": e.sender,
+                    "date": e.date.isoformat(),
+                    "snippet": e.snippet
+                }
+                for e in emails
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch emails: {str(e)}")
+
+
+@router.post("/email/wait-verification")
+async def wait_for_verification_email(service_name: str, timeout: int = 120):
+    """
+    Wait for a verification email from a service.
+    
+    Returns the verification code/link when found.
+    """
+    try:
+        gmail_reader = get_gmail_reader()
+        verification = await gmail_reader.wait_for_verification_email(
+            from_service=service_name,
+            timeout_seconds=timeout
+        )
+        
+        if verification:
+            return {
+                "success": True,
+                "code": verification.code,
+                "link": verification.link,
+                "otp": verification.otp
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"No verification email received from {service_name} within {timeout}s"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
 # =============================================================================
