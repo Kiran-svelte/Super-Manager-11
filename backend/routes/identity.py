@@ -81,33 +81,36 @@ async def setup_ai_identity(request: SetupIdentityRequest):
     
     Returns setup status and capabilities unlocked.
     """
-    manager = get_identity_manager()
-    
-    identity, message = await manager.create_identity(
-        user_id=request.user_id,
-        email=request.email,
-        password=request.app_password,
-        display_name=request.display_name,
-        auth_type=AuthType.APP_PASSWORD
-    )
-    
-    if not identity:
-        raise HTTPException(status_code=400, detail=message)
-    
-    return {
-        "success": True,
-        "message": message,
-        "identity": {
-            "email": identity.email,
-            "display_name": identity.display_name,
-            "status": identity.status.value,
-            "capabilities": {
-                "can_send_email": identity.can_send_email,
-                "can_read_email": identity.can_read_email,
-                "can_signup_services": identity.can_signup_services
+    try:
+        manager = get_identity_manager()
+        
+        identity, message = await manager.create_identity(
+            user_id=request.user_id,
+            email=request.email,
+            password=request.app_password,
+            display_name=request.display_name,
+            auth_type=AuthType.APP_PASSWORD
+        )
+        
+        if not identity:
+            raise HTTPException(status_code=400, detail=message)
+        
+        return {
+            "success": True,
+            "message": message,
+            "identity": {
+                "email": identity.email,
+                "display_name": identity.display_name,
+                "status": identity.status.value,
+                "capabilities": {
+                    "can_send_email": identity.can_send_email,
+                    "can_read_email": identity.can_read_email,
+                    "can_signup_services": identity.can_signup_services
+                }
             }
         }
-    }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Setup failed: {str(e)}")
 
 
 @router.get("/status/{user_id}")
