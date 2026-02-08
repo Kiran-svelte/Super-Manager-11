@@ -5,7 +5,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import AISettings from './components/AISettings'
 import './App.css'
 
-const API = import.meta.env.VITE_API_URL || 'https://super-manager-11-production.up.railway.app'
+const API = import.meta.env.VITE_API_URL || 'https://backend-production-a98d.up.railway.app'
 
 function App() {
   const [input, setInput] = useState('')

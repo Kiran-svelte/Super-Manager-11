@@ -6,7 +6,7 @@
  */
 import { useState, useCallback, useRef } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://super-manager-11-production.up.railway.app/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://backend-production-a98d.up.railway.app/api';
 
 /**
  * Hook for streaming chat with real-time token updates
