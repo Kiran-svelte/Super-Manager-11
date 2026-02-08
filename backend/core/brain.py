@@ -266,7 +266,14 @@ ACTION RULES:
 
 RESPONSE FORMAT (JSON):
 {"type": "answer", "message": "brief response", "search_needed": true, "search_query": "what to search"}
-{"type": "task", "task_type": "email|meeting|payment|shopping", "have": {}, "need": [], "message": "collecting info"}
+{"type": "task", "task_type": "email|meeting|payment|shopping", "have": {extracted info}, "need": [missing fields], "message": "confirmation"}
+
+TASK FIELD EXTRACTION:
+- For MEETING: Extract "title", "time", "participants" (as array of emails). Example: {"have": {"title": "Team sync", "time": "4pm", "participants": ["john@email.com"]}, "need": []}
+- For EMAIL: Extract "to" (email), "subject", "body". Example: {"have": {"to": "test@email.com", "subject": "Hello"}, "need": ["body"]}
+- For PAYMENT: Extract "amount", "to", "upi_id". Example: {"have": {"amount": 500, "to": "John"}, "need": ["upi_id"]}
+
+IMPORTANT: Always extract email addresses into the participants array for meetings!
 
 STRICT RULES:
 🚫 NEVER ask for passwords, API keys, or credentials
