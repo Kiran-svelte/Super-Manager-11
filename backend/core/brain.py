@@ -36,6 +36,13 @@ try:
 except ImportError:
     BROWSER_AUTOMATION_AVAILABLE = False
 
+# Import task planner for autonomous task execution
+try:
+    from agent.task_planner import get_task_planner, TaskPlanner
+    TASK_PLANNER_AVAILABLE = True
+except ImportError:
+    TASK_PLANNER_AVAILABLE = False
+
 # =============================================================================
 # CONFIG
 # =============================================================================

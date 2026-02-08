@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Check, X, Loader, PanelRightOpen, PanelRightClose, Settings } from 'lucide-react'
+import { Send, Check, X, Loader, PanelRightOpen, PanelRightClose, Settings, Bot } from 'lucide-react'
 import TaskPanel from './components/TaskPanel'
 import OnboardingWizard from './components/OnboardingWizard'
+import AISettings from './components/AISettings'
 import './App.css'
 
 const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
@@ -15,6 +16,7 @@ function App() {
   const [showTaskPanel, setShowTaskPanel] = useState(true)
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [hasAIIdentity, setHasAIIdentity] = useState(null) // null = loading, false = no, true = yes
   const [userId, setUserId] = useState(null)
   const endRef = useRef(null)
@@ -149,15 +151,13 @@ function App() {
             <span>AI Assistant {hasAIIdentity && '✓'}</span>
           </div>
           <div className="header-actions">
-            {!hasAIIdentity && (
-              <button 
-                className="setup-btn"
-                onClick={() => setShowOnboarding(true)}
-                title="Set up AI Identity"
-              >
-                <Settings size={18} />
-              </button>
-            )}
+            <button 
+              className="setup-btn"
+              onClick={() => setShowSettings(true)}
+              title="AI Settings"
+            >
+              <Bot size={18} />
+            </button>
             <button 
               className="panel-toggle" 
               onClick={() => setShowTaskPanel(!showTaskPanel)}
@@ -241,6 +241,17 @@ function App() {
         <div className="task-section">
           <TaskPanel refreshTrigger={taskRefreshTrigger} />
         </div>
+      )}
+      
+      {showSettings && (
+        <AISettings 
+          userId={userId}
+          onClose={() => setShowSettings(false)}
+          onSave={(data) => {
+            setHasAIIdentity(true)
+            setShowSettings(false)
+          }}
+        />
       )}
     </div>
   )

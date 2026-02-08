@@ -513,3 +513,169 @@ async def get_services_for_task(task_type: str):
         "task_type": task_type,
         "recommended_services": services
     }
+
+
+# =============================================================================
+# TASK PLANNER ENDPOINTS - Autonomous Task Execution
+# =============================================================================
+
+class TaskPlanRequest(BaseModel):
+    """Request to plan a task"""
+    user_request: str = Field(..., description="What the user wants to accomplish")
+
+
+class ExecutePlanRequest(BaseModel):
+    """Request to execute a plan"""
+    task_id: str
+
+
+@router.post("/task/plan")
+async def create_task_plan(request: TaskPlanRequest):
+    """
+    Create an autonomous task plan.
+    
+    The AI will:
+    1. Analyze what capabilities are needed
+    2. Find suitable service providers
+    3. Check if API keys already exist
+    4. Determine what signups are needed
+    """
+    try:
+        from ..agent.task_planner import get_task_planner
+        
+        planner = get_task_planner()
+        plan = await planner.create_plan(request.user_request)
+        
+        return {
+            "success": True,
+            "task_id": plan.task_id,
+            "status": plan.status.value,
+            "capabilities_needed": plan.capabilities_needed,
+            "providers": [
+                {
+                    "name": p["provider"],
+                    "capability": p["capability"],
+                    "has_api_key": p["provider"] in plan.api_keys_acquired,
+                    "needs_signup": p["provider"] not in plan.api_keys_acquired,
+                }
+                for p in plan.selected_providers
+            ],
+            "steps": plan.steps,
+            "message": planner.format_plan_for_user(plan)
+        }
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="Task planner not available"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to create plan: {str(e)}"
+        )
+
+
+@router.post("/task/execute")
+async def execute_task_plan(request: ExecutePlanRequest, background_tasks: BackgroundTasks):
+    """
+    Execute a task plan.
+    
+    This will:
+    1. Sign up for any services that need it
+    2. Get API keys
+    3. Execute the actual task
+    """
+    try:
+        from ..agent.task_planner import get_task_planner
+        
+        planner = get_task_planner()
+        plan = planner.get_plan_status(request.task_id)
+        
+        if not plan:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Plan not found: {request.task_id}"
+            )
+        
+        # Execute in background for long-running tasks
+        # For now, execute synchronously
+        plan = await planner.execute_plan(plan)
+        
+        return {
+            "success": plan.status.value == "completed",
+            "task_id": plan.task_id,
+            "status": plan.status.value,
+            "steps": plan.steps,
+            "result": plan.result,
+            "error": plan.error,
+            "message": planner.format_plan_for_user(plan)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to execute plan: {str(e)}"
+        )
+
+
+@router.get("/task/status/{task_id}")
+async def get_task_status(task_id: str):
+    """Get the status of a task plan"""
+    try:
+        from ..agent.task_planner import get_task_planner
+        
+        planner = get_task_planner()
+        plan = planner.get_plan_status(task_id)
+        
+        if not plan:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Plan not found: {task_id}"
+            )
+        
+        return {
+            "task_id": plan.task_id,
+            "status": plan.status.value,
+            "user_request": plan.user_request,
+            "capabilities": plan.capabilities_needed,
+            "providers": [p["provider"] for p in plan.selected_providers],
+            "api_keys_acquired": list(plan.api_keys_acquired.keys()),
+            "steps": plan.steps,
+            "result": plan.result,
+            "error": plan.error,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+@router.get("/task/capabilities")
+async def list_available_capabilities():
+    """List all capabilities the AI can provide"""
+    try:
+        from ..agent.task_planner import SERVICE_REGISTRY
+        
+        capabilities = []
+        for cap_name, cap_info in SERVICE_REGISTRY.items():
+            capabilities.append({
+                "name": cap_name,
+                "description": cap_info["description"],
+                "providers": [
+                    {
+                        "name": p["name"],
+                        "free_tier": p["free_tier"],
+                        "difficulty": p["difficulty"],
+                    }
+                    for p in cap_info["providers"]
+                ]
+            })
+        
+        return {"capabilities": capabilities}
+    except ImportError:
+        return {"capabilities": [], "error": "Task planner not available"}
+
