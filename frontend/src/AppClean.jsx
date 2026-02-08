@@ -11,7 +11,7 @@ import {
 import AISettings from './components/AISettings'
 import './styles/clean-theme.css'
 
-const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
+const API = import.meta.env.VITE_API_URL || 'https://super-manager-11-production.up.railway.app'
 
 // =============================================================================
 // Helpers

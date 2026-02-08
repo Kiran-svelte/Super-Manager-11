@@ -16,7 +16,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
  */
 export function useChat(options = {}) {
   const {
-    apiUrl = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com',
+    apiUrl = import.meta.env.VITE_API_URL || 'https://super-manager-11-production.up.railway.app',
     onError = null,
     maxRetries = 3,
   } = options;

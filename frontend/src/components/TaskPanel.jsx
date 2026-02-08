@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import './TaskPanel.css'
 
-const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
+const API = import.meta.env.VITE_API_URL || 'https://super-manager-11-production.up.railway.app'
 
 /**
  * TaskPanel - Shows real-time task progress
