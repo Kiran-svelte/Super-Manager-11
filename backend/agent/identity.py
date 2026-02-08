@@ -393,21 +393,29 @@ class AIIdentityManager:
             _password=password  # Keep in memory
         )
         
-        # Save to database
+        # Save to database (with timeout to prevent hanging)
         if self.supabase:
             try:
-                self.supabase.table("ai_identities").upsert({
-                    "id": identity_id,
-                    "user_id": user_id,
-                    "email": email,
-                    "display_name": display_name,
-                    "encrypted_password": encrypted_password,
-                    "status": IdentityStatus.ACTIVE.value,
-                    "can_send_email": True,
-                    "can_read_email": True,
-                    "can_signup_services": True,
-                    "last_verified_at": datetime.now().isoformat()
-                }).execute()
+                import asyncio
+                # Run DB save with timeout
+                loop = asyncio.get_event_loop()
+                await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: self.supabase.table("ai_identities").upsert({
+                        "id": identity_id,
+                        "user_id": user_id,
+                        "email": email,
+                        "display_name": display_name,
+                        "encrypted_password": encrypted_password,
+                        "status": IdentityStatus.ACTIVE.value,
+                        "can_send_email": True,
+                        "can_read_email": True,
+                        "can_signup_services": True,
+                        "last_verified_at": datetime.now().isoformat()
+                    }).execute()),
+                    timeout=10.0
+                )
+            except asyncio.TimeoutError:
+                print("[IDENTITY DB ERROR] Database save timed out")
             except Exception as e:
                 print(f"[IDENTITY DB ERROR] {str(e)}")
         
