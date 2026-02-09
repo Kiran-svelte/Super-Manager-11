@@ -406,14 +406,43 @@ class AIIdentityManager:
         # Save to database (non-blocking - just log errors)
         if self.supabase:
             try:
+                # Ensure user_id is a valid UUID, or generate one
+                try:
+                    uuid.UUID(user_id)
+                    valid_user_id = user_id
+                except (ValueError, AttributeError):
+                    # Generate a deterministic UUID from the user_id string
+                    valid_user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, user_id))
+                
+                # Ensure user exists in users table (foreign key requirement)
+                try:
+                    existing = self.supabase.table("users").select("id").eq("id", valid_user_id).execute()
+                    if not existing.data:
+                        # Create user record
+                        self.supabase.table("users").insert({
+                            "id": valid_user_id,
+                            "email": email,
+                            "name": display_name,
+                            "created_at": datetime.now().isoformat()
+                        }).execute()
+                        print(f"[IDENTITY] Created user record for {valid_user_id}")
+                except Exception as user_err:
+                    print(f"[IDENTITY] User check/create error: {user_err}")
+                
+                # Now save identity with valid user_id
                 self.supabase.table("ai_identities").upsert({
                     "id": identity_id,
-                    "user_id": user_id,
+                    "user_id": valid_user_id,
                     "email": email,
                     "display_name": display_name,
                     "encrypted_password": encrypted_password,
-                    "status": IdentityStatus.ACTIVE.value
+                    "auth_type": auth_type.value,
+                    "status": IdentityStatus.ACTIVE.value,
+                    "can_send_email": True,
+                    "can_read_email": True,
+                    "can_signup_services": True
                 }).execute()
+                print(f"[IDENTITY] Saved identity to database for user {valid_user_id}")
             except Exception as e:
                 print(f"[IDENTITY DB ERROR] {str(e)}")
         
