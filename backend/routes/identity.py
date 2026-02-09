@@ -14,19 +14,70 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
 
-from ..agent.identity import (
-    get_identity_manager, 
-    AIIdentity, 
-    AuthType, 
-    IdentityStatus,
-    ResponsibleAI,
-    SensitiveDataHandler
-)
-from ..agent.service_signup import ServiceSignup, ServiceRegistry
-from ..agent.browser_automation import ServiceSignupAutomation
-from ..agent.gmail_reader import get_gmail_reader
+# Import agent modules with error handling
+_import_errors = []
+
+try:
+    from ..agent.identity import (
+        get_identity_manager, 
+        AIIdentity, 
+        AuthType, 
+        IdentityStatus,
+        ResponsibleAI,
+        SensitiveDataHandler
+    )
+except Exception as e:
+    _import_errors.append(f"agent.identity: {e}")
+    get_identity_manager = None
+    AIIdentity = None
+    AuthType = None
+    IdentityStatus = None
+    ResponsibleAI = None
+    SensitiveDataHandler = None
+
+try:
+    from ..agent.service_signup import ServiceSignup, ServiceRegistry
+except Exception as e:
+    _import_errors.append(f"agent.service_signup: {e}")
+    ServiceSignup = None
+    ServiceRegistry = None
+
+try:
+    from ..agent.browser_automation import ServiceSignupAutomation
+except Exception as e:
+    _import_errors.append(f"agent.browser_automation: {e}")
+    ServiceSignupAutomation = None
+
+try:
+    from ..agent.gmail_reader import get_gmail_reader
+except Exception as e:
+    _import_errors.append(f"agent.gmail_reader: {e}")
+    get_gmail_reader = None
+
+# Log import errors
+if _import_errors:
+    print(f"[IDENTITY ROUTES] Import errors: {_import_errors}")
 
 router = APIRouter(prefix="/api/identity", tags=["AI Identity"])
+
+
+# =============================================================================
+# DIAGNOSTIC ENDPOINT
+# =============================================================================
+
+@router.get("/status")
+async def get_identity_status():
+    """Check identity module status and import errors"""
+    return {
+        "status": "ok" if not _import_errors else "partial",
+        "import_errors": _import_errors,
+        "modules": {
+            "identity_manager": get_identity_manager is not None,
+            "service_signup": ServiceSignup is not None,
+            "browser_automation": ServiceSignupAutomation is not None,
+            "gmail_reader": get_gmail_reader is not None,
+        }
+    }
 
 
 # =============================================================================

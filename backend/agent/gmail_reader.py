@@ -17,9 +17,19 @@ from dataclasses import dataclass
 from email.mime.text import MIMEText
 
 import httpx
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
+
+# Google libraries (optional - graceful degradation if not available)
+try:
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+    GOOGLE_AVAILABLE = True
+except ImportError as e:
+    GOOGLE_AVAILABLE = False
+    Credentials = None
+    Request = None
+    build = None
+    print(f"[GMAIL] Google libraries not available: {e}")
 
 # Gmail OAuth Configuration
 GMAIL_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID", "")
