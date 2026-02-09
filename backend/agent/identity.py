@@ -415,19 +415,17 @@ class AIIdentityManager:
                     valid_user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, user_id))
                 
                 # Ensure user exists in users table (foreign key requirement)
+                # Use upsert to avoid conflicts
                 try:
-                    existing = self.supabase.table("users").select("id").eq("id", valid_user_id).execute()
-                    if not existing.data:
-                        # Create user record
-                        self.supabase.table("users").insert({
-                            "id": valid_user_id,
-                            "email": email,
-                            "name": display_name,
-                            "created_at": datetime.now().isoformat()
-                        }).execute()
-                        print(f"[IDENTITY] Created user record for {valid_user_id}")
+                    self.supabase.table("users").upsert({
+                        "id": valid_user_id,
+                        "email": email,
+                        "name": display_name
+                    }, on_conflict="id").execute()
+                    print(f"[IDENTITY] Ensured user record for {valid_user_id}")
                 except Exception as user_err:
-                    print(f"[IDENTITY] User check/create error: {user_err}")
+                    print(f"[IDENTITY] User upsert error: {user_err}")
+                    # Don't stop - the user might already exist
                 
                 # Now save identity with valid user_id
                 # Use actual DB column names - store status info in metadata
