@@ -45,8 +45,8 @@ aiosmtplib>=3.0.0
 # ===== WebSocket & Real-time =====
 websockets>=12.0
 
-# ===== Web Automation =====
-playwright>=1.40.0
+# ===== Web Automation (optional, installed separately) =====
+# playwright>=1.40.0
 qrcode>=7.4.0
 Pillow>=10.0.0
 
