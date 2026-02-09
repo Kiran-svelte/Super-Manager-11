@@ -310,7 +310,8 @@ CAPABILITIES (USE THESE PROACTIVELY):
 3. MEETINGS - Create Jitsi video call links + send invites
 4. SHOPPING - Find products with real purchase links
 5. UPI PAYMENTS - Generate payment links
-6. SERVICE SIGNUP - Sign up for online services (groq, together, huggingface, openrouter) and get API keys
+6. SERVICE SIGNUP - Sign up for online services and get API keys
+7. IMAGE/LOGO GENERATION - Create images, logos, designs using AI
 
 ACTION RULES:
 - When user asks to find/search something → DO A SEARCH, provide real links
@@ -318,17 +319,19 @@ ACTION RULES:
 - When user asks to send email → COLLECT info and SEND IT
 - When user asks to meet/call → CREATE a meeting link
 - When user asks to sign up for a service → SIGNUP for that service
+- When user asks to create a logo/image/design → USE image generation task
 - Be CONCISE. Users want results, not essays.
 
 RESPONSE FORMAT (JSON):
 {"type": "answer", "message": "brief response", "search_needed": true, "search_query": "what to search"}
-{"type": "task", "task_type": "email|meeting|payment|shopping|signup", "have": {extracted info}, "need": [missing fields], "message": "confirmation"}
+{"type": "task", "task_type": "email|meeting|payment|shopping|signup|image", "have": {extracted info}, "need": [missing fields], "message": "confirmation"}
 
 TASK FIELD EXTRACTION:
 - For MEETING: Extract "title", "time", "participants" (as array of emails). Example: {"have": {"title": "Team sync", "time": "4pm", "participants": ["john@email.com"]}, "need": []}
 - For EMAIL: Extract "to" (email), "subject", "body". Example: {"have": {"to": "test@email.com", "subject": "Hello"}, "need": ["body"]}
 - For PAYMENT: Extract "amount", "to", "upi_id". Example: {"have": {"amount": 500, "to": "John"}, "need": ["upi_id"]}
 - For SIGNUP: Extract "service" (service name). Example: {"have": {"service": "groq"}, "need": []}. Available: groq, together, huggingface, openrouter
+- For IMAGE: Extract "prompt" (description), "style" (optional: logo, icon, realistic, cartoon). Example: {"have": {"prompt": "tech startup logo with rocket"}, "need": []}
 
 IMPORTANT: Always extract email addresses into the participants array for meetings!
 
@@ -340,11 +343,13 @@ STRICT RULES:
 ✅ DO send emails when you have the info
 ✅ DO create meeting links
 ✅ DO sign up for services and get API keys autonomously
+✅ DO generate images/logos when asked
 ✅ Keep responses SHORT and actionable
 
 For shopping: Don't just describe products - SEARCH and give PURCHASE LINKS.
 For questions: Answer briefly and directly.
-For tasks: Execute them, don't just talk about them."""
+For tasks: Execute them, don't just talk about them.
+For creative requests (logos, images): Use the image generation capability."""
 
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=30.0)
@@ -672,6 +677,8 @@ Extract the provided information and respond with JSON:
                 result = await self._do_shopping(task.plan)
             elif task.type == "signup":
                 result = await self._signup_for_service(task.plan)
+            elif task.type == "image":
+                result = await self._generate_image(task.plan)
             else:
                 result = await self._handle_other_task(task.plan, task.type)
             
@@ -913,6 +920,68 @@ Extract the provided information and respond with JSON:
                 "success": False,
                 "message": f"❌ Signup failed for {service}: {str(e)}"
             }
+    
+    async def _generate_image(self, plan: Dict) -> Dict:
+        """Generate image/logo using AI image generation APIs"""
+        prompt = plan.get("prompt", plan.get("description", ""))
+        style = plan.get("style", "logo")
+        
+        if not prompt:
+            return {"success": False, "message": "Please describe what you want in the image"}
+        
+        # Try Together AI for image generation (has free tier)
+        together_key = os.getenv("TOGETHER_API_KEY", "")
+        
+        if together_key:
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    response = await client.post(
+                        "https://api.together.xyz/v1/images/generations",
+                        headers={
+                            "Authorization": f"Bearer {together_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "black-forest-labs/FLUX.1-schnell-Free",
+                            "prompt": f"{prompt}, {style} style, professional quality, high resolution",
+                            "n": 1,
+                            "width": 1024,
+                            "height": 1024
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("data") and len(data["data"]) > 0:
+                            image_url = data["data"][0].get("url", "")
+                            return {
+                                "success": True,
+                                "message": f"✅ Generated your {style}!\n\n🎨 Here's your image: {image_url}\n\nYou can download it from the link above.",
+                                "image_url": image_url
+                            }
+            except Exception as e:
+                print(f"[IMAGE GEN] Together AI error: {e}")
+        
+        # Fallback: Provide helpful links to free logo/image tools
+        return {
+            "success": True,
+            "message": f"""🎨 I can help you create your {style}! Here are some free options:
+
+**Free AI Logo Generators:**
+- [Canva Logo Maker](https://www.canva.com/create/logos/) - Easy drag-and-drop
+- [Looka](https://looka.com/) - AI-powered logo design
+- [Hatchful by Shopify](https://www.shopify.com/tools/logo-maker) - Free logo maker
+- [Brandmark](https://brandmark.io/) - AI logo generator
+
+**Free AI Image Generators:**
+- [DALL-E (via Bing)](https://www.bing.com/images/create) - Free with Microsoft account
+- [Leonardo AI](https://leonardo.ai/) - Free tier available
+- [Playground AI](https://playgroundai.com/) - Free image generation
+
+💡 **Your prompt:** "{prompt}"
+
+Use this prompt in any of the tools above to generate your {style}!"""
+        }
     
     async def _handle_other_task(self, plan: Dict, task_type: str) -> Dict:
         """Handle custom/unknown task types intelligently using AI + search"""
