@@ -59,10 +59,37 @@ if sys.platform.startswith('win'):
 from .database_supabase import init_db, get_db
 logger.info("[DB] Using Supabase PostgreSQL")
 
+# Import routes with error handling to prevent one failed import from crashing the app
 from .routes import agent, plugins, task_agent, tasks, memory, chat, autonomous, streaming, api
-from .routes import agent_v2  # NEW: Agent V2 system
-from .routes import tasks_v2  # NEW: Task Orchestration API
-from .routes import identity  # NEW: AI Identity Management
+
+# Try to import new routers - they may fail due to dependencies
+try:
+    from .routes import agent_v2
+    AGENT_V2_AVAILABLE = True
+    logger.info("[IMPORT] ✅ agent_v2 loaded")
+except Exception as e:
+    AGENT_V2_AVAILABLE = False
+    agent_v2 = None
+    logger.error(f"[IMPORT] ❌ agent_v2 failed: {e}")
+
+try:
+    from .routes import tasks_v2
+    TASKS_V2_AVAILABLE = True
+    logger.info("[IMPORT] ✅ tasks_v2 loaded")
+except Exception as e:
+    TASKS_V2_AVAILABLE = False
+    tasks_v2 = None
+    logger.error(f"[IMPORT] ❌ tasks_v2 failed: {e}")
+
+try:
+    from .routes import identity
+    IDENTITY_AVAILABLE = True
+    logger.info("[IMPORT] ✅ identity loaded")
+except Exception as e:
+    IDENTITY_AVAILABLE = False
+    identity = None
+    logger.error(f"[IMPORT] ❌ identity failed: {e}")
+
 from .core.agent import AgentManager
 from .core.ai_providers import get_ai_router
 from .core.realtime import get_connection_manager, websocket_endpoint
@@ -231,9 +258,20 @@ app.add_middleware(
 # /api/chat is THE MAIN ENDPOINT - clean, simple flow
 app.include_router(api.router)  # MAIN: /api/chat - clean brain
 app.include_router(streaming.router)  # /api/stream/* - streaming version
-app.include_router(agent_v2.router)  # NEW: /api/v2/* - TRUE AI Agent
-app.include_router(tasks_v2.router)  # NEW: /api/v2/tasks/* - Task Orchestration
-app.include_router(identity.router)  # NEW: /api/identity/* - AI Identity Management
+
+# Conditionally include new routers
+if AGENT_V2_AVAILABLE and agent_v2:
+    app.include_router(agent_v2.router)  # NEW: /api/v2/* - TRUE AI Agent
+    logger.info("[ROUTER] ✅ agent_v2 router added")
+
+if TASKS_V2_AVAILABLE and tasks_v2:
+    app.include_router(tasks_v2.router)  # NEW: /api/v2/tasks/* - Task Orchestration
+    logger.info("[ROUTER] ✅ tasks_v2 router added")
+
+if IDENTITY_AVAILABLE and identity:
+    app.include_router(identity.router)  # NEW: /api/identity/* - AI Identity Management
+    logger.info("[ROUTER] ✅ identity router added")
+
 app.include_router(autonomous.router)  # Legacy
 app.include_router(chat.router)  # Legacy
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
