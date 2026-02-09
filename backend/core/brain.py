@@ -43,6 +43,14 @@ try:
 except ImportError:
     TASK_PLANNER_AVAILABLE = False
 
+# Import identity manager for user email config
+try:
+    from agent.identity import get_identity_manager
+    IDENTITY_AVAILABLE = True
+except ImportError:
+    IDENTITY_AVAILABLE = False
+    get_identity_manager = None
+
 # =============================================================================
 # CONFIG
 # =============================================================================
@@ -220,8 +228,39 @@ def get_email_plugin():
         _email_plugin = GmailOAuthPlugin()
     return _email_plugin
 
+async def send_email_with_identity(to: str, subject: str, body: str, user_id: str = "default") -> Dict:
+    """Send email using user's configured AI identity email"""
+    if IDENTITY_AVAILABLE and get_identity_manager:
+        try:
+            manager = get_identity_manager()
+            identity = await manager.get_identity(user_id)
+            
+            if identity and identity.email and hasattr(identity, '_password') and identity._password:
+                # Use the user's configured AI email
+                try:
+                    msg = MIMEMultipart()
+                    msg['From'] = identity.email
+                    msg['To'] = to
+                    msg['Subject'] = subject
+                    msg.attach(MIMEText(body, 'html'))
+                    
+                    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                        server.starttls()
+                        server.login(identity.email, identity._password)
+                        server.send_message(msg)
+                    
+                    print(f"[EMAIL] ✅ Sent via identity email {identity.email} to {to}")
+                    return {"success": True, "message": f"✅ Email sent to {to}!"}
+                except Exception as smtp_err:
+                    print(f"[EMAIL] Identity SMTP failed: {smtp_err}")
+        except Exception as e:
+            print(f"[EMAIL] Identity lookup failed: {e}")
+    
+    # Fallback to original method
+    return await send_email_real(to, subject, body)
+
 async def send_email_real(to: str, subject: str, body: str) -> Dict:
-    """Send email using Gmail OAuth plugin"""
+    """Send email using Gmail OAuth plugin or SMTP fallback"""
     try:
         plugin = get_email_plugin()
         result = await plugin.execute(
@@ -309,8 +348,9 @@ For tasks: Execute them, don't just talk about them."""
 
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=30.0)
+        self._current_user_id = "default"  # Track current user for email
     
-    async def process(self, session_id: str, user_message: str) -> Dict[str, Any]:
+    async def process(self, session_id: str, user_message: str, user_id: str = "default") -> Dict[str, Any]:
         """
         Main entry point. Clean flow:
         1. Get session
@@ -320,6 +360,7 @@ For tasks: Execute them, don't just talk about them."""
         5. Handle response
         6. Return result
         """
+        self._current_user_id = user_id  # Store for email sending
         session = db.get_session(session_id)
         
         # Record user message
@@ -668,8 +709,8 @@ Extract the provided information and respond with JSON:
         subject = plan.get("subject", "Message from Super Manager")
         body = plan.get("body", plan.get("message", ""))
         
-        # Use actual email sender
-        result = await send_email_real(to, subject, body)
+        # Use user's identity email
+        result = await send_email_with_identity(to, subject, body, self._current_user_id)
         return result
     
     async def _create_meeting(self, plan: Dict) -> Dict:
@@ -685,7 +726,7 @@ Extract the provided information and respond with JSON:
         meeting_id = f"supermanager-{uuid.uuid4().hex[:8]}"
         link = f"https://meet.jit.si/{meeting_id}"
         
-        # Send email invites to participants
+        # Send email invites to participants using user's identity email
         invite_status = []
         for p in participants:
             if "@" in p:  # Valid email
@@ -697,8 +738,8 @@ Extract the provided information and respond with JSON:
 <br>
 <p>Sent via Super Manager AI</p>
 """
-                result = await send_email_real(p, f"Meeting: {title}", email_body)
-                invite_status.append(f"{p}: {'✅ Sent' if result['success'] else '❌ Failed'}")
+                result = await send_email_with_identity(p, f"Meeting: {title}", email_body, self._current_user_id)
+                invite_status.append(f"{p}: {'✅ Sent' if result['success'] else '❌ Failed - ' + result.get('message', '')}")
             else:
                 invite_status.append(f"{p}: ⚠️ Not a valid email")
         
@@ -954,9 +995,9 @@ brain = AIBrain()
 # =============================================================================
 # PUBLIC API - Simple functions to call
 # =============================================================================
-async def chat(session_id: str, message: str) -> Dict[str, Any]:
+async def chat(session_id: str, message: str, user_id: str = "default") -> Dict[str, Any]:
     """Send a message and get response"""
-    return await brain.process(session_id, message)
+    return await brain.process(session_id, message, user_id)
 
 
 def get_session(session_id: str) -> Session:

@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000)
     session_id: Optional[str] = Field(None, max_length=100)
+    user_id: Optional[str] = Field(None, max_length=100)  # User ID for identity lookup
     
     @validator('message')
     def clean_message(cls, v):
@@ -147,12 +148,13 @@ async def chat_endpoint(
     """
     start_time = time.time()
     session_id = request.session_id or str(uuid.uuid4())
+    user_id = request.user_id or "default"
     
     try:
         # Log the request (without full message for privacy)
-        logger.info(f"Chat request - session: {session_id[:8]}..., length: {len(request.message)}")
+        logger.info(f"Chat request - session: {session_id[:8]}..., user: {user_id}, length: {len(request.message)}")
         
-        result = await chat(session_id, request.message)
+        result = await chat(session_id, request.message, user_id)
         
         response_time = (time.time() - start_time) * 1000
         
