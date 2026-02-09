@@ -2,17 +2,28 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install minimal dependencies
-RUN pip install --no-cache-dir fastapi uvicorn
+# Install system dependencies for some Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create a minimal test app
-RUN echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get("/api/health")\ndef health(): return {"status": "healthy"}' > /app/test_app.py
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY backend/ ./backend/
 
 # Set environment variables
+ENV PYTHONUNBUFFERED=1
 ENV PORT=10000
+
+# Verify the app can import
+RUN python -c "from backend.main import app; print('Backend imports OK')"
 
 # Expose port
 EXPOSE 10000
 
-# Start minimal test app
-CMD ["sh", "-c", "uvicorn test_app:app --host 0.0.0.0 --port $PORT"]
+# Start command
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"]
