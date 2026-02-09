@@ -26,6 +26,11 @@ try:
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
+    # Define stub types so type hints don't cause errors
+    Browser = None
+    Page = None  
+    BrowserContext = None
+    async_playwright = None
 
 # Internal imports
 from .gmail_reader import get_gmail_reader, VerificationCode
