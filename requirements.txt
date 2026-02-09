@@ -64,6 +64,6 @@ mypy>=1.7.0
 isort>=5.13.0
 bandit>=1.7.6
 
-# ===== Production =====
-uvloop>=0.19.0
+# ===== Production (Linux only) =====
+# uvloop>=0.19.0  # Causes issues on Python 3.10
 httptools>=0.6.0
