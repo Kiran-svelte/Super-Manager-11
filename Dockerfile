@@ -8,13 +8,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY backend/ ./backend/
-COPY *.py ./
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV PORT=10000
 
 # Expose port
 EXPOSE 10000
 
-# Start command
-CMD ["gunicorn", "backend.main:app", "-w", "1", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:10000"]
+# Start command using PORT env var
+CMD gunicorn backend.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT}
