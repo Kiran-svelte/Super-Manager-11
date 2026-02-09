@@ -430,17 +430,20 @@ class AIIdentityManager:
                     print(f"[IDENTITY] User check/create error: {user_err}")
                 
                 # Now save identity with valid user_id
+                # Use actual DB column names - store status info in metadata
                 self.supabase.table("ai_identities").upsert({
                     "id": identity_id,
                     "user_id": valid_user_id,
                     "email": email,
                     "display_name": display_name,
-                    "encrypted_password": encrypted_password,
-                    "auth_type": auth_type.value,
-                    "status": IdentityStatus.ACTIVE.value,
-                    "can_send_email": True,
-                    "can_read_email": True,
-                    "can_signup_services": True
+                    "email_password_encrypted": encrypted_password,  # Actual column name
+                    "metadata": {
+                        "auth_type": auth_type.value,
+                        "status": IdentityStatus.ACTIVE.value,
+                        "can_send_email": True,
+                        "can_read_email": True,
+                        "can_signup_services": True
+                    }
                 }).execute()
                 print(f"[IDENTITY] Saved identity to database for user {valid_user_id}")
             except Exception as e:
@@ -470,23 +473,25 @@ class AIIdentityManager:
                 
                 if result.data and len(result.data) > 0:
                     data = result.data[0]
+                    metadata = data.get("metadata", {}) or {}
                     identity = AIIdentity(
                         id=data["id"],
                         user_id=data["user_id"],
                         email=data["email"],
-                        display_name=data["display_name"],
-                        auth_type=AuthType(data["auth_type"]),
-                        status=IdentityStatus(data["status"]),
-                        can_send_email=data["can_send_email"],
-                        can_read_email=data["can_read_email"],
-                        can_signup_services=data["can_signup_services"],
-                        metadata=data.get("metadata", {})
+                        display_name=data.get("display_name", "AI Assistant"),
+                        auth_type=AuthType(metadata.get("auth_type", "app_password")),
+                        status=IdentityStatus(metadata.get("status", "active")),
+                        can_send_email=metadata.get("can_send_email", True),
+                        can_read_email=metadata.get("can_read_email", True),
+                        can_signup_services=metadata.get("can_signup_services", True),
+                        metadata=metadata
                     )
                     
-                    # Decrypt password
-                    if data.get("encrypted_password"):
+                    # Decrypt password (use actual column name)
+                    password_encrypted = data.get("email_password_encrypted") or data.get("encrypted_password")
+                    if password_encrypted:
                         try:
-                            identity._password = self.encryption.decrypt(data["encrypted_password"])
+                            identity._password = self.encryption.decrypt(password_encrypted)
                         except:
                             pass
                     
