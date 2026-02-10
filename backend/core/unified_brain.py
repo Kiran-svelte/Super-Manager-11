@@ -137,7 +137,7 @@ WHEN YOU DON'T KNOW:
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "llama-3.1-70b-versatile",
+                        "model": "llama-3.3-70b-versatile",
                         "messages": messages,
                         "temperature": 0.7,
                         "max_tokens": 1024
@@ -250,11 +250,12 @@ WHEN YOU DON'T KNOW:
         
         # Map string to TaskType enum
         type_mapping = {
-            "send_email": TaskType.EMAIL,
-            "generate_image": TaskType.IMAGE,
-            "book_ticket": TaskType.TICKET,
-            "make_payment": TaskType.PAYMENT,
-            "web_search": TaskType.SEARCH
+            "send_email": TaskType.SEND_EMAIL,
+            "generate_image": TaskType.GENERATE_IMAGE,
+            "create_logo": TaskType.CREATE_LOGO,
+            "book_ticket": TaskType.BOOK_TICKETS,
+            "make_payment": TaskType.MAKE_PAYMENT,
+            "web_search": TaskType.SEARCH_WEB
         }
         
         task_type = type_mapping.get(task_type_str)
@@ -266,38 +267,41 @@ WHEN YOU DON'T KNOW:
                 intent=IntentType.UNCLEAR
             )
         
-        # Create and execute task
-        task = await self.orchestrator.create_task(
-            task_type=task_type,
-            params=params,
-            user_id=user_id
+        # Create task using orchestrator
+        session_id = f"session_{user_id}"
+        task = self.orchestrator.create_task(
+            task_type=task_type.value,  # Pass string value
+            user_id=user_id,
+            session_id=session_id,
+            initial_data=params
         )
         
-        result = await self.orchestrator.execute_task(task)
+        # Execute the task
+        result = await self.orchestrator.execute_task(task.task_id)
         
         # Build response based on execution result
-        if result.status == TaskStatus.COMPLETED:
-            return self._build_success_response(task_type, result, original_response)
-        elif result.status == TaskStatus.PARTIAL:
-            return self._build_partial_response(task_type, result, original_response)
+        if result.get("success"):
+            return self._build_success_response(task_type, task, result, original_response)
         else:
-            return self._build_failure_response(task_type, result, original_response)
+            return self._build_failure_response(task_type, task, result, original_response)
 
     def _build_success_response(
         self, 
         task_type: TaskType, 
         task: Task,
+        result: Dict[str, Any],
         original_response: str
     ) -> BrainResponse:
         """Build response for successful task execution"""
         
-        proof = asdict(task.proof) if task.proof else None
+        # Get proof from result, or from task
+        proof = result.get("proof") or (asdict(task.proof) if task.proof else None)
         ui_elements = []
         message = ""
         
-        if task_type == TaskType.IMAGE:
+        if task_type in [TaskType.GENERATE_IMAGE, TaskType.CREATE_LOGO]:
             # Image generation success
-            images = proof.get("images", []) if proof else []
+            images = result.get("images") or (proof.get("images", []) if proof else [])
             
             if images:
                 message = f"Here are your {len(images)} generated image(s):\n\n"
@@ -308,6 +312,7 @@ WHEN YOU DON'T KNOW:
                         "type": "image",
                         "url": url,
                         "alt": f"Generated image {i+1}",
+                        "prompt": result.get("prompt", ""),
                         "action": {
                             "type": "download",
                             "url": url
@@ -319,21 +324,21 @@ WHEN YOU DON'T KNOW:
             else:
                 message = "Images were generated but no URLs were returned. Please try again."
         
-        elif task_type == TaskType.EMAIL:
-            recipient = proof.get("recipient", "unknown") if proof else "unknown"
-            subject = proof.get("subject", "") if proof else ""
+        elif task_type == TaskType.SEND_EMAIL:
+            recipient = result.get("to") or (proof.get("recipient", "unknown") if proof else "unknown")
+            subject = result.get("subject") or (proof.get("subject", "") if proof else "")
             message = f"Email sent successfully!\n\n📧 To: {recipient}\n📋 Subject: {subject}\n✅ Status: Delivered"
             
-        elif task_type == TaskType.SEARCH:
-            results = proof.get("results", []) if proof else []
+        elif task_type == TaskType.SEARCH_WEB:
+            results_list = result.get("results") or (proof.get("results", []) if proof else [])
             
-            if results:
-                message = f"Found {len(results)} results:\n\n"
+            if results_list:
+                message = f"Found {len(results_list)} results:\n\n"
                 
-                for i, result in enumerate(results[:5]):
-                    title = result.get("title", "Untitled")
-                    url = result.get("url", "#")
-                    snippet = result.get("snippet", "")[:100]
+                for i, res in enumerate(results_list[:5]):
+                    title = res.get("title", "Untitled")
+                    url = res.get("url", "#")
+                    snippet = res.get("snippet", "")[:100]
                     
                     ui_elements.append({
                         "type": "link_card",
@@ -346,19 +351,22 @@ WHEN YOU DON'T KNOW:
             else:
                 message = "Search completed but no results found. Try different keywords."
         
-        elif task_type == TaskType.TICKET:
-            ticket_type = proof.get("ticket_type", "ticket") if proof else "ticket"
+        elif task_type == TaskType.BOOK_TICKETS:
+            ticket_type = result.get("ticket_type") or (proof.get("ticket_type", "ticket") if proof else "ticket")
             
             if ticket_type == "wonderla":
-                pricing = proof.get("pricing", {}) if proof else {}
+                pricing = result.get("pricing") or (proof.get("pricing", {}) if proof else {})
+                venue = result.get("venue") or (proof.get("venue", "N/A") if proof else "N/A")
+                date = result.get("date") or (proof.get("date", "Not specified") if proof else "Not specified")
+                
                 message = f"🎢 Wonderla Ticket Information:\n\n"
-                message += f"Location: {proof.get('venue', 'N/A')}\n"
-                message += f"Date: {proof.get('date', 'Not specified')}\n\n"
+                message += f"Location: {venue}\n"
+                message += f"Date: {date}\n\n"
                 message += "💰 Pricing:\n"
                 message += f"• Adult: ₹{pricing.get('adult', 'N/A')}\n"
                 message += f"• Child: ₹{pricing.get('child', 'N/A')}\n\n"
                 
-                booking_url = proof.get("booking_url", "https://www.wonderla.com")
+                booking_url = result.get("booking_url") or (proof.get("booking_url", "https://www.wonderla.com") if proof else "https://www.wonderla.com")
                 ui_elements.append({
                     "type": "button",
                     "text": "Book Now on Wonderla",
@@ -368,7 +376,7 @@ WHEN YOU DON'T KNOW:
                 
             elif ticket_type == "movie":
                 message = "🎬 For movie tickets, I'll redirect you to BookMyShow:\n\n"
-                movie_url = proof.get("redirect_url", "https://www.bookmyshow.com")
+                movie_url = result.get("redirect_url") or (proof.get("redirect_url", "https://www.bookmyshow.com") if proof else "https://www.bookmyshow.com")
                 
                 ui_elements.append({
                     "type": "button",
@@ -377,12 +385,12 @@ WHEN YOU DON'T KNOW:
                     "style": "primary"
                 })
         
-        elif task_type == TaskType.PAYMENT:
-            method = proof.get("method", "payment") if proof else "payment"
+        elif task_type == TaskType.MAKE_PAYMENT:
+            method = result.get("provider") or (proof.get("method", "payment") if proof else "payment")
             
             if method == "razorpay":
-                payment_link = proof.get("payment_link", "") if proof else ""
-                amount = proof.get("amount", 0) if proof else 0
+                payment_link = result.get("short_url") or (proof.get("payment_link", "") if proof else "")
+                amount = result.get("amount") or (proof.get("amount", 0) if proof else 0)
                 
                 message = f"💳 Payment link created!\n\nAmount: ₹{amount}\n"
                 
@@ -393,9 +401,9 @@ WHEN YOU DON'T KNOW:
                         "url": payment_link,
                         "style": "primary"
                     })
-            elif method == "upi":
-                upi_uri = proof.get("upi_uri", "") if proof else ""
-                upi_id = proof.get("upi_id", "") if proof else ""
+            elif method == "upi_direct":
+                upi_uri = result.get("payment_url") or (proof.get("upi_uri", "") if proof else "")
+                upi_id = result.get("upi_id") or (proof.get("upi_id", "") if proof else "")
                 
                 message = f"📱 UPI Payment Details:\n\nUPI ID: {upi_id}\n"
                 message += "\nOpen your UPI app and pay to this ID."
@@ -446,19 +454,28 @@ WHEN YOU DON'T KNOW:
         self, 
         task_type: TaskType, 
         task: Task,
+        result: Dict[str, Any],
         original_response: str
     ) -> BrainResponse:
         """Build response for failed task"""
         
-        errors = task.errors or ["Unknown error occurred"]
+        # Get errors from result or task
+        errors = []
+        if result.get("error"):
+            errors.append(result.get("error"))
+        if result.get("missing_fields"):
+            errors.append(f"Missing: {', '.join(result.get('missing_fields', []))}")
+        if not errors:
+            errors = task.errors or ["Unknown error occurred"]
         
         # Provide honest, helpful error messages
         error_messages = {
-            TaskType.EMAIL: "I couldn't send the email. Reason: {}. Please check if the email configuration (SendGrid or SMTP) is properly set up.",
-            TaskType.IMAGE: "Image generation failed. Reason: {}. This might be due to API limits or service unavailability.",
-            TaskType.SEARCH: "Web search failed. Reason: {}. Please try again with different search terms.",
-            TaskType.TICKET: "Ticket booking failed. Reason: {}.",
-            TaskType.PAYMENT: "Payment creation failed. Reason: {}. Please verify payment gateway configuration."
+            TaskType.SEND_EMAIL: "I couldn't send the email. Reason: {}. Please check if the email configuration (SendGrid or SMTP) is properly set up.",
+            TaskType.GENERATE_IMAGE: "Image generation failed. Reason: {}. This might be due to API limits or service unavailability.",
+            TaskType.CREATE_LOGO: "Logo generation failed. Reason: {}. This might be due to API limits or service unavailability.",
+            TaskType.SEARCH_WEB: "Web search failed. Reason: {}. Please try again with different search terms.",
+            TaskType.BOOK_TICKETS: "Ticket booking failed. Reason: {}.",
+            TaskType.MAKE_PAYMENT: "Payment creation failed. Reason: {}. Please verify payment gateway configuration."
         }
         
         template = error_messages.get(task_type, "Task failed. Reason: {}")
