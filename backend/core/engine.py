@@ -1062,6 +1062,51 @@ class TaskOrchestrator:
         task.updated_at = datetime.now()
         return task
     
+    def _get_required_capability(self, task_type: TaskType) -> Optional[str]:
+        """Map task type to required capability"""
+        from .autonomous_capabilities import CapabilityType
+        
+        capability_map = {
+            TaskType.GENERATE_IMAGE: CapabilityType.IMAGE_GENERATION,
+            TaskType.CREATE_LOGO: CapabilityType.IMAGE_GENERATION,
+            TaskType.SEND_EMAIL: CapabilityType.EMAIL_SENDING,
+            TaskType.MAKE_PAYMENT: CapabilityType.PAYMENT_PROCESSING,
+        }
+        return capability_map.get(task_type)
+    
+    async def _ensure_capability(self, task_type: TaskType, user_id: str = None) -> Tuple[bool, str]:
+        """
+        Check if we have the capability for this task.
+        If not, try to acquire it automatically.
+        """
+        capability = self._get_required_capability(task_type)
+        
+        if not capability:
+            return (True, "No specific capability required")
+        
+        try:
+            from .autonomous_capabilities import CapabilityResolver
+            resolver = CapabilityResolver(user_id)
+            
+            # Check if we have it
+            has_it, api_key = resolver.check_capability(capability)
+            if has_it:
+                return (True, f"Capability available: {capability.value}")
+            
+            # Try to acquire
+            logger.info(f"Attempting to acquire capability: {capability.value}")
+            success, message, key = await resolver.acquire_capability(capability)
+            
+            if success:
+                logger.info(f"Successfully acquired capability: {capability.value}")
+                return (True, message)
+            else:
+                return (False, message)
+                
+        except Exception as e:
+            logger.error(f"Capability check failed: {e}")
+            return (True, "Capability check skipped")  # Allow execution to proceed
+    
     async def execute_task(self, task_id: str) -> Dict:
         """Execute a task and return result with proof"""
         task = self.active_tasks.get(task_id)
@@ -1071,6 +1116,17 @@ class TaskOrchestrator:
         executor = self.executors.get(task.task_type)
         if not executor:
             return {"success": False, "error": f"No executor for task type: {task.task_type}"}
+        
+        # Check/acquire capability before execution
+        cap_ok, cap_message = await self._ensure_capability(task.task_type, task.user_id)
+        if not cap_ok:
+            task.status = TaskStatus.FAILED
+            return {
+                "success": False,
+                "error": "capability_missing",
+                "message": cap_message,
+                "needs_action": "acquire_capability"
+            }
         
         # Validate
         is_valid, missing = executor.validate(task)

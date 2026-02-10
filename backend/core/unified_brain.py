@@ -468,6 +468,44 @@ WHEN YOU DON'T KNOW:
         if not errors:
             errors = task.errors or ["Unknown error occurred"]
         
+        # Check if this is a capability error
+        if result.get("error") == "capability_missing":
+            message = result.get("message", "A required capability is missing.")
+            
+            # Try to get acquisition guidance
+            try:
+                from .autonomous_capabilities import ServiceRegistry, CapabilityType
+                
+                # Map task to capability
+                cap_map = {
+                    TaskType.GENERATE_IMAGE: CapabilityType.IMAGE_GENERATION,
+                    TaskType.CREATE_LOGO: CapabilityType.IMAGE_GENERATION,
+                    TaskType.SEND_EMAIL: CapabilityType.EMAIL_SENDING,
+                    TaskType.MAKE_PAYMENT: CapabilityType.PAYMENT_PROCESSING,
+                }
+                
+                cap = cap_map.get(task_type)
+                if cap:
+                    services = ServiceRegistry.get_services_for_capability(cap)
+                    if services:
+                        message += "\n\n🔧 You can enable this by signing up for one of these services:\n"
+                        for s in services[:3]:
+                            message += f"• {s.name}: {s.signup_url}"
+                            if s.signup_method == "none":
+                                message += " (No signup needed!)"
+                            elif s.free_tier:
+                                message += " (Free tier available)"
+                            message += "\n"
+                            
+            except Exception as e:
+                pass
+            
+            return BrainResponse(
+                message=message,
+                success=False,
+                suggestions=["Try a different task", "What can you do?"]
+            )
+        
         # Provide honest, helpful error messages
         error_messages = {
             TaskType.SEND_EMAIL: "I couldn't send the email. Reason: {}. Please check if the email configuration (SendGrid or SMTP) is properly set up.",
@@ -513,42 +551,93 @@ WHEN YOU DON'T KNOW:
         self.conversation_history = []
 
     def get_capabilities(self) -> Dict[str, Any]:
-        """Return current capabilities and their status"""
+        """Return current capabilities and their status with acquisition info"""
         
         available = self.config.get_available_services()
         
-        return {
-            "email": {
-                "available": "email" in available,
-                "provider": "SendGrid" if self.config.SENDGRID_API_KEY else "SMTP" if self.config.SMTP_HOST else None,
-                "description": "Send real emails to any recipient"
-            },
-            "image_generation": {
-                "available": "image" in available,
-                "provider": "Together AI" if self.config.TOGETHER_API_KEY else "Replicate" if self.config.REPLICATE_API_TOKEN else None,
-                "description": "Generate images from text descriptions"
-            },
-            "web_search": {
-                "available": True,  # DuckDuckGo always available
-                "provider": "DuckDuckGo",
-                "description": "Search the web for information"
-            },
-            "tickets": {
-                "available": True,  # Info is always available
-                "provider": "Wonderla + BookMyShow",
-                "description": "Book theme park and movie tickets"
-            },
-            "payments": {
-                "available": "payment" in available,
-                "provider": "Razorpay" if self.config.RAZORPAY_KEY_ID else "UPI Direct",
-                "description": "Create payment links or UPI payments"
-            },
-            "llm": {
-                "available": bool(self.config.GROQ_API_KEY),
-                "provider": "Groq (Llama 3.1 70B)",
-                "description": "Natural language understanding"
+        # Get enhanced capability status
+        try:
+            from .autonomous_capabilities import get_capability_status, CapabilityType
+            full_status = get_capability_status()
+            
+            return {
+                "email": {
+                    "available": "email" in available,
+                    "provider": "SendGrid" if self.config.SENDGRID_API_KEY else "SMTP" if self.config.SMTP_EMAIL else None,
+                    "description": "Send real emails to any recipient",
+                    "auto_acquirable": True,
+                    "services": full_status.get("email_sending", {}).get("possible_services", [])
+                },
+                "image_generation": {
+                    "available": True,  # Pollinations is always available
+                    "provider": "Pollinations AI (free)" if not self.config.TOGETHER_API_KEY else "Together AI",
+                    "description": "Generate images from text descriptions",
+                    "auto_acquirable": True,
+                    "services": full_status.get("image_generation", {}).get("possible_services", [])
+                },
+                "web_search": {
+                    "available": True,  # DuckDuckGo always available
+                    "provider": "DuckDuckGo",
+                    "description": "Search the web for information",
+                    "auto_acquirable": True
+                },
+                "tickets": {
+                    "available": True,  # Info is always available
+                    "provider": "Wonderla + BookMyShow",
+                    "description": "Book theme park and movie tickets"
+                },
+                "payments": {
+                    "available": "payment" in available,
+                    "provider": "Razorpay" if self.config.RAZORPAY_KEY_ID else "UPI Direct",
+                    "description": "Create payment links or UPI payments",
+                    "auto_acquirable": True,
+                    "services": full_status.get("payment_processing", {}).get("possible_services", [])
+                },
+                "llm": {
+                    "available": bool(self.config.GROQ_API_KEY),
+                    "provider": "Groq (Llama 3.3 70B)",
+                    "description": "Natural language understanding",
+                    "auto_acquirable": True
+                },
+                "autonomous": {
+                    "description": "I can automatically sign up for services I need using browser automation",
+                    "requires": "AI email identity for verification"
+                }
             }
-        }
+        except Exception as e:
+            # Fallback to basic status
+            return {
+                "email": {
+                    "available": "email" in available,
+                    "provider": "SendGrid" if self.config.SENDGRID_API_KEY else "SMTP" if self.config.SMTP_EMAIL else None,
+                    "description": "Send real emails to any recipient"
+                },
+                "image_generation": {
+                    "available": True,  # Pollinations always works
+                    "provider": "Pollinations AI (free)",
+                    "description": "Generate images from text descriptions"
+                },
+                "web_search": {
+                    "available": True,
+                    "provider": "DuckDuckGo",
+                    "description": "Search the web for information"
+                },
+                "tickets": {
+                    "available": True,
+                    "provider": "Wonderla + BookMyShow",
+                    "description": "Book theme park and movie tickets"
+                },
+                "payments": {
+                    "available": "payment" in available,
+                    "provider": "Razorpay" if self.config.RAZORPAY_KEY_ID else "UPI Direct",
+                    "description": "Create payment links or UPI payments"
+                },
+                "llm": {
+                    "available": bool(self.config.GROQ_API_KEY),
+                    "provider": "Groq (Llama 3.3 70B)",
+                    "description": "Natural language understanding"
+                }
+            }
 
 
 # Singleton instance for the app
