@@ -7,7 +7,7 @@
 import React, { useState, useRef } from 'react'
 import { 
   Check, X, ExternalLink, Calendar, Clock, CreditCard, 
-  Shield, ChevronRight, Loader
+  Shield, ChevronRight, Loader, Download, RefreshCw, Edit3
 } from 'lucide-react'
 import './InteractiveUI.css'
 
@@ -379,6 +379,114 @@ export const DatePicker = ({ component, onSelect, loading }) => {
 }
 
 /**
+ * Image Card - For displaying generated images
+ */
+export const ImageCard = ({ image, onAction, loading }) => {
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
+
+  const handleDownload = () => {
+    if (image.url) {
+      const link = document.createElement('a')
+      link.href = image.url
+      link.download = `logo_${image.id || 'image'}.png`
+      link.target = '_blank'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
+
+  return (
+    <div className={`image-card ${imageLoaded ? 'loaded' : ''}`}>
+      <div className="image-container">
+        {!imageLoaded && !imageError && (
+          <div className="image-loading">
+            <Loader className="spin" size={24} />
+            <span>Loading...</span>
+          </div>
+        )}
+        {imageError ? (
+          <div className="image-error">
+            <X size={24} />
+            <span>Failed to load</span>
+          </div>
+        ) : (
+          <img
+            src={image.image_url || image.url}
+            alt={image.title || `Image ${image.index}`}
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
+            style={{ display: imageLoaded ? 'block' : 'none' }}
+          />
+        )}
+      </div>
+      
+      <div className="image-info">
+        <h4>{image.title || `Concept ${image.index}`}</h4>
+        
+        <div className="image-actions">
+          <button 
+            className="ui-btn ui-btn-primary"
+            onClick={() => onAction('select_logo', image.id, { image })}
+            disabled={loading}
+          >
+            <Check size={14} /> Select
+          </button>
+          <button 
+            className="ui-btn ui-btn-outline"
+            onClick={handleDownload}
+            disabled={loading}
+          >
+            <Download size={14} /> Download
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Image Gallery - For displaying multiple generated images
+ */
+export const ImageGallery = ({ component, onAction, loading }) => {
+  const images = component.images || []
+  const actions = component.actions || []
+
+  return (
+    <div className="image-gallery">
+      <div className="gallery-grid">
+        {images.map((img, idx) => (
+          <ImageCard
+            key={img.id || idx}
+            image={img}
+            onAction={onAction}
+            loading={loading}
+          />
+        ))}
+      </div>
+      
+      {actions.length > 0 && (
+        <div className="gallery-actions">
+          {actions.map((action, idx) => (
+            <button
+              key={action.id || idx}
+              className={`ui-btn ${action.action === 'regenerate_logos' ? 'ui-btn-secondary' : 'ui-btn-outline'}`}
+              onClick={() => onAction(action.action, action.id, action.metadata || {})}
+              disabled={loading}
+            >
+              {action.action === 'regenerate_logos' && <RefreshCw size={14} />}
+              {action.action === 'edit_prompt' && <Edit3 size={14} />}
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * Main UI Component Renderer
  */
 export const UIComponentRenderer = ({ component, onAction, onMessage, loading }) => {
@@ -403,10 +511,20 @@ export const UIComponentRenderer = ({ component, onAction, onMessage, loading })
     case 'date_picker':
       return <DatePicker component={component} onSelect={onMessage} loading={loading} />
     
+    case 'image_gallery':
+      return <ImageGallery component={component} onAction={onAction} loading={loading} />
+    
+    case 'image_card':
+      return <ImageCard image={component} onAction={onAction} loading={loading} />
+    
     default:
       // Try to render buttons if present
       if (component.buttons) {
         return <ButtonGroup component={component} onAction={onAction} loading={loading} />
+      }
+      // Try to render images if present
+      if (component.images) {
+        return <ImageGallery component={component} onAction={onAction} loading={loading} />
       }
       return null
   }

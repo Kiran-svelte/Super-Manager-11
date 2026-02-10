@@ -32,6 +32,14 @@ from .interactive_ui import (
     Card, CardStyle, ConfirmationDialog
 )
 
+# Import image service
+try:
+    from .image_service import get_image_service
+    IMAGE_SERVICE_AVAILABLE = True
+except ImportError:
+    IMAGE_SERVICE_AVAILABLE = False
+    get_image_service = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -339,6 +347,10 @@ Extract any relevant data like:
         
         task_type = intent_result["intent"]
         extracted_data = intent_result.get("extracted_data", {})
+        
+        # Special handling for logo/image generation - execute immediately
+        if task_type == "create_logo":
+            return await self._handle_logo_generation(session, extracted_data)
         
         # Create task
         task = self.executor.create_task(
@@ -880,6 +892,157 @@ offer to do it for them (e.g., "Would you like me to schedule that meeting for y
             "session_id": session.session_id,
             "status": "info"
         }
+    
+    async def _handle_logo_generation(self, session: ConversationSession, extracted_data: Dict) -> Dict:
+        """Handle logo/image generation with real image generation"""
+        
+        # Extract logo details
+        name = extracted_data.get("name", extracted_data.get("business_name", ""))
+        style = extracted_data.get("style", "logo")
+        colors = extracted_data.get("colors", [])
+        description = extracted_data.get("description", "")
+        num_images = min(extracted_data.get("num_images", 3), 3)  # Max 3
+        
+        # Build prompt
+        prompt_parts = []
+        if name:
+            prompt_parts.append(f"logo for '{name}'")
+        if description:
+            prompt_parts.append(description)
+        if colors:
+            prompt_parts.append(f"using colors: {', '.join(colors)}")
+        
+        if not prompt_parts:
+            # Need more info
+            message = "I'd be happy to create logos for you! Could you tell me:\n1. What's the name/brand?\n2. What style do you want (minimalist, modern, playful, etc.)?\n3. Any specific colors?"
+            session.add_message("assistant", message)
+            return {
+                "message": message,
+                "session_id": session.session_id,
+                "status": "collecting_info",
+                "missing_fields": ["name", "style"]
+            }
+        
+        prompt = ", ".join(prompt_parts)
+        
+        # Check if image service is available
+        if not IMAGE_SERVICE_AVAILABLE or not get_image_service:
+            # Return fallback with external tools
+            fallback_message = f"""I'd love to create logos for you, but I need an image generation API key configured.
+
+**Your design brief:** {prompt}
+
+In the meantime, here are free tools you can use with this prompt:
+• [Canva Logo Maker](https://www.canva.com/create/logos/) - Easy drag-and-drop
+• [Looka](https://looka.com/) - AI-powered logo design  
+• [Bing Image Creator](https://www.bing.com/images/create) - Free DALL-E
+
+Would you like me to help with something else?"""
+            
+            session.add_message("assistant", fallback_message)
+            return {
+                "message": fallback_message,
+                "session_id": session.session_id,
+                "status": "info"
+            }
+        
+        image_service = get_image_service()
+        
+        if not image_service.has_providers():
+            # No API keys configured
+            fallback_tools = image_service._get_fallback_tools()
+            tools_list = "\n".join([f"• [{t['name']}]({t['url']}) - {t['description']}" for t in fallback_tools[:4]])
+            
+            fallback_message = f"""I need an image generation API key to create logos directly. 
+
+**Your prompt:** "{prompt}"
+
+Here are free tools you can use:
+{tools_list}
+
+Just paste your prompt into any of these tools!"""
+            
+            session.add_message("assistant", fallback_message)
+            return {
+                "message": fallback_message,
+                "session_id": session.session_id,
+                "status": "info"
+            }
+        
+        # Actually generate images
+        generating_msg = f"Generating {num_images} logo concept(s) for you... This may take a moment."
+        session.add_message("assistant", generating_msg)
+        
+        result = await image_service.generate_images(
+            prompt=prompt,
+            num_images=num_images,
+            style=style
+        )
+        
+        if result.get("success") and result.get("images"):
+            images = result["images"]
+            
+            # Build response with images
+            message = f"Here are {len(images)} logo concept(s) for you:\n\n"
+            
+            # Create image cards UI
+            image_cards = []
+            for img in images:
+                image_cards.append({
+                    "type": "image_card",
+                    "id": img["id"],
+                    "image_url": img["url"],
+                    "title": f"Concept {img['index']}",
+                    "actions": [
+                        {"id": f"select_{img['id']}", "label": "Select This", "action": "select_logo"},
+                        {"id": f"download_{img['id']}", "label": "Download", "action": "download", "url": img["url"]}
+                    ]
+                })
+            
+            ui_components = {
+                "type": "image_gallery",
+                "images": image_cards,
+                "actions": [
+                    {"id": "regenerate", "label": "🔄 Generate More", "action": "regenerate_logos"},
+                    {"id": "edit_prompt", "label": "✏️ Change Description", "action": "edit_prompt"}
+                ]
+            }
+            
+            message += "Select one you like, or I can generate more options!"
+            
+            session.add_message("assistant", message, ui_components=ui_components)
+            session.context["last_prompt"] = prompt
+            session.context["generated_images"] = images
+            
+            return {
+                "message": message,
+                "session_id": session.session_id,
+                "status": "awaiting_selection",
+                "ui_components": ui_components,
+                "images": images
+            }
+        else:
+            # Generation failed
+            error = result.get("error", "Unknown error")
+            fallback_tools = result.get("fallback_tools", [])
+            
+            if fallback_tools:
+                tools_list = "\n".join([f"• [{t['name']}]({t['url']}) - {t['description']}" for t in fallback_tools[:4]])
+                message = f"""Sorry, I couldn't generate the logos right now. ({error})
+
+**Your prompt:** "{prompt}"
+
+Try these free alternatives:
+{tools_list}"""
+            else:
+                message = f"Sorry, I ran into an issue generating your logos: {error}. Please try again."
+            
+            session.add_message("assistant", message)
+            return {
+                "message": message,
+                "session_id": session.session_id,
+                "status": "error"
+            }
     
     async def _handle_unclear(self, session: ConversationSession, message: str) -> Dict:
         """Handle unclear intents"""
