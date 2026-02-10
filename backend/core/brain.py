@@ -470,23 +470,39 @@ Be helpful, be natural, be smart."""
             return json.dumps({"type": "answer", "message": f"Sorry, I encountered an error: {str(e)}"})
     
     def _parse_response(self, response: str) -> Dict:
-        """Parse AI JSON response - extract just the message, never show raw JSON"""
+        """Parse AI JSON response - handle various formats"""
         try:
             # Find JSON in response
             start = response.find("{")
             end = response.rfind("}") + 1
             if start >= 0 and end > start:
                 parsed = json.loads(response[start:end])
+                
+                # Normalize: if AI returned task_type without type:task wrapper
+                if "task_type" in parsed and "type" not in parsed:
+                    parsed["type"] = "task"
+                
                 # Always ensure we have a clean message
-                if "message" in parsed:
+                if "message" in parsed or "type" in parsed:
                     return parsed
         except:
             pass
         
+        # Check if the response looks like partial JSON (e.g., starts with "task_type":)
+        if '"task_type"' in response:
+            try:
+                # Wrap it to make valid JSON
+                wrapped = "{" + response.strip().strip("{}") + "}"
+                parsed = json.loads(wrapped)
+                parsed["type"] = "task"
+                return parsed
+            except:
+                pass
+        
         # If response starts with { but parsing failed, it's malformed JSON
         # Clean it up - remove JSON artifacts
         clean_response = response
-        if response.strip().startswith("{"):
+        if response.strip().startswith("{") or response.strip().startswith('"'):
             # Try to extract just the message value
             import re
             match = re.search(r'"message"\s*:\s*"([^"]+)"', response)
@@ -497,6 +513,7 @@ Be helpful, be natural, be smart."""
                 clean_response = re.sub(r'^\s*\{[^}]*"type"\s*:\s*"[^"]*",?\s*', '', response)
                 clean_response = re.sub(r'"message"\s*:\s*"?', '', clean_response)
                 clean_response = re.sub(r'"\s*\}\s*$', '', clean_response)
+                clean_response = re.sub(r'^["\']+|["\']+$', '', clean_response)
         
         return {"type": "answer", "message": clean_response.strip()}
     
