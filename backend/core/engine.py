@@ -311,21 +311,57 @@ class ImageGenerationProvider:
             except Exception as e:
                 logger.error(f"Replicate failed: {e}")
         
-        # No provider available - return helpful fallback
+        # Fallback to Pollinations AI (FREE, no API key required!)
+        try:
+            return await self._generate_pollinations(enhanced_prompt, num_images)
+        except Exception as e:
+            logger.error(f"Pollinations failed: {e}")
+        
+        # All providers failed
         return {
             "success": False,
-            "error": "No image generation API configured",
+            "error": "All image generation providers failed",
             "fallback": {
-                "message": f"I can't generate images directly, but here are free tools you can use with your prompt:",
+                "message": f"I couldn't generate images, but here are free tools you can use:",
                 "prompt": prompt,
                 "tools": [
                     {"name": "Bing Image Creator", "url": "https://www.bing.com/images/create", "note": "Free DALL-E 3"},
                     {"name": "Leonardo AI", "url": "https://leonardo.ai/", "note": "Free tier available"},
-                    {"name": "Canva", "url": "https://www.canva.com/create/logos/", "note": "Free logo maker"},
-                    {"name": "Ideogram", "url": "https://ideogram.ai/", "note": "Free, great for text in images"}
+                    {"name": "Canva", "url": "https://www.canva.com/create/logos/", "note": "Free logo maker"}
                 ]
             }
         }
+    
+    async def _generate_pollinations(self, prompt: str, num_images: int) -> Dict:
+        """Generate using Pollinations AI (FREE, no API key needed!)"""
+        images = []
+        
+        # Pollinations provides direct image URLs based on prompt
+        # URL format: https://image.pollinations.ai/prompt/{encoded_prompt}
+        base_url = "https://image.pollinations.ai/prompt"
+        
+        for i in range(num_images):
+            # Add seed for variety between images
+            seed = secrets.randbelow(1000000)
+            encoded_prompt = quote(f"{prompt}, seed:{seed}")
+            image_url = f"{base_url}/{encoded_prompt}?width=1024&height=1024&nologo=true"
+            
+            images.append({
+                "id": f"img_{secrets.token_hex(4)}",
+                "url": image_url,
+                "index": i + 1
+            })
+        
+        if images:
+            return {
+                "success": True,
+                "provider": "pollinations_ai",
+                "images": images,
+                "prompt": prompt,
+                "note": "Generated using Pollinations AI (free)"
+            }
+        
+        raise Exception("Pollinations AI returned no images")
     
     def _enhance_prompt(self, prompt: str, style: str) -> str:
         """Enhance prompt for better results"""
