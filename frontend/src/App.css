@@ -331,3 +331,211 @@ main::-webkit-scrollbar-thumb {
     padding: 6px;
   }
 }
+
+/* =============================================================================
+   WELCOME SECTION WITH QUICK ACTIONS
+   ============================================================================= */
+
+.welcome {
+  text-align: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+}
+
+.welcome-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a78bfa;
+}
+
+.welcome h2 {
+  color: #f1f5f9;
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.welcome p {
+  margin-bottom: 24px;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.quick-actions button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  color: #93c5fd;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-actions button:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.setup-identity-btn {
+  margin-top: 16px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.setup-identity-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+}
+
+/* =============================================================================
+   INTERACTIVE UI COMPONENTS
+   ============================================================================= */
+
+.ui-components {
+  margin-top: 16px;
+}
+
+/* =============================================================================
+   PROOF OF EXECUTION
+   ============================================================================= */
+
+.proof-section {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+}
+
+.proof-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #22c55e;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.proof-id {
+  font-size: 12px;
+  color: #94a3b8;
+  font-family: monospace;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.proof-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.proof-link:hover {
+  text-decoration: underline;
+}
+
+/* =============================================================================
+   STATUS INDICATOR
+   ============================================================================= */
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #22c55e;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* =============================================================================
+   FOOTER INFO
+   ============================================================================= */
+
+.footer-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.footer-info .separator {
+  color: #475569;
+}
+
+/* =============================================================================
+   LOADING STATE
+   ============================================================================= */
+
+.bubble.loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bubble.loading span {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* =============================================================================
+   ERROR BUBBLE
+   ============================================================================= */
+
+.error-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.1) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.error-bubble svg {
+  flex-shrink: 0;
+}
+
