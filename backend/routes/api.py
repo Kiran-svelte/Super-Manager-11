@@ -34,12 +34,18 @@ import uuid
 import time
 import logging
 
-# Try new intelligent brain first, fall back to old brain
+# Try new unified brain first, then intelligent brain, then old brain
 try:
-    from ..core.intelligent_brain import get_chat_brain, handle_button_action
-    USE_INTELLIGENT_BRAIN = True
-except ImportError:
+    from ..core.unified_brain import get_brain, chat_handler
+    USE_UNIFIED_BRAIN = True
     USE_INTELLIGENT_BRAIN = False
+except ImportError:
+    USE_UNIFIED_BRAIN = False
+    try:
+        from ..core.intelligent_brain import get_chat_brain, handle_button_action
+        USE_INTELLIGENT_BRAIN = True
+    except ImportError:
+        USE_INTELLIGENT_BRAIN = False
 
 from ..core.brain import chat, get_history, save_user_data, get_user_data
 from ..core.validation import (
@@ -181,8 +187,10 @@ async def chat_endpoint(
         # Log the request (without full message for privacy)
         logger.info(f"Chat request - session: {session_id[:8]}..., user: {user_id}, length: {len(request.message)}")
         
-        # Use intelligent brain if available
-        if USE_INTELLIGENT_BRAIN:
+        # Use unified brain if available (the new real execution engine)
+        if USE_UNIFIED_BRAIN:
+            result = await chat_handler(request.message, user_id)
+        elif USE_INTELLIGENT_BRAIN:
             brain = get_chat_brain()
             result = await brain.process_message(request.message, session_id, user_id)
         else:
@@ -343,3 +351,38 @@ async def button_action_endpoint(
                 "code": "action_error"
             }
         )
+
+
+# =============================================================================
+# CAPABILITIES ENDPOINT
+# =============================================================================
+
+@router.get("/api/capabilities")
+async def get_capabilities():
+    """
+    Get current AI capabilities and their status.
+    Helps frontend show what's available.
+    """
+    try:
+        if USE_UNIFIED_BRAIN:
+            brain = get_brain()
+            capabilities = brain.get_capabilities()
+            return {
+                "status": "operational",
+                "brain": "unified",
+                "capabilities": capabilities
+            }
+        else:
+            return {
+                "status": "degraded",
+                "brain": "legacy",
+                "capabilities": {
+                    "chat": {"available": True, "description": "Basic chat only"}
+                }
+            }
+    except Exception as e:
+        logger.error(f"Capabilities error: {str(e)}")
+        return {
+            "status": "error",
+            "error": str(e)
+        }
