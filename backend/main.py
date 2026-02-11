@@ -60,7 +60,15 @@ from .database_supabase import init_db, get_db
 logger.info("[DB] Using Supabase PostgreSQL")
 
 # Import routes with error handling to prevent one failed import from crashing the app
-from .routes import agent, plugins, task_agent, tasks, memory, chat, autonomous, streaming, api
+from .routes import api, streaming
+
+# Legacy routes - loaded conditionally
+try:
+    from .routes import agent, plugins, task_agent, tasks, memory
+    LEGACY_ROUTES_AVAILABLE = True
+except Exception as e:
+    LEGACY_ROUTES_AVAILABLE = False
+    logger.warning(f"[IMPORT] Legacy routes partially unavailable: {e}")
 
 # Try to import new routers - they may fail due to dependencies
 try:
@@ -256,29 +264,29 @@ app.add_middleware(
 
 # Include routers
 # /api/chat is THE MAIN ENDPOINT - clean, simple flow
-app.include_router(api.router)  # MAIN: /api/chat - clean brain
+app.include_router(api.router)  # MAIN: /api/chat - brain.py with engine integration
 app.include_router(streaming.router)  # /api/stream/* - streaming version
 
 # Conditionally include new routers
 if AGENT_V2_AVAILABLE and agent_v2:
-    app.include_router(agent_v2.router)  # NEW: /api/v2/* - TRUE AI Agent
-    logger.info("[ROUTER] ✅ agent_v2 router added")
+    app.include_router(agent_v2.router)  # /api/v2/* - TRUE AI Agent
+    logger.info("[ROUTER] agent_v2 router added")
 
 if TASKS_V2_AVAILABLE and tasks_v2:
-    app.include_router(tasks_v2.router)  # NEW: /api/v2/tasks/* - Task Orchestration
-    logger.info("[ROUTER] ✅ tasks_v2 router added")
+    app.include_router(tasks_v2.router)  # /api/v2/tasks/* - Task Orchestration
+    logger.info("[ROUTER] tasks_v2 router added")
 
 if IDENTITY_AVAILABLE and identity:
-    app.include_router(identity.router)  # NEW: /api/identity/* - AI Identity Management
-    logger.info("[ROUTER] ✅ identity router added")
+    app.include_router(identity.router)  # /api/identity/* - AI Identity Management
+    logger.info("[ROUTER] identity router added")
 
-app.include_router(autonomous.router)  # Legacy
-app.include_router(chat.router)  # Legacy
-app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
-app.include_router(task_agent.router, prefix="/api/task", tags=["task_agent"])
-app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
-app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
-app.include_router(plugins.router, prefix="/api/plugins", tags=["plugins"])
+# Legacy routes (only if available)
+if LEGACY_ROUTES_AVAILABLE:
+    app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
+    app.include_router(task_agent.router, prefix="/api/task", tags=["task_agent"])
+    app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
+    app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
+    app.include_router(plugins.router, prefix="/api/plugins", tags=["plugins"])
 
 
 # =============================================================================

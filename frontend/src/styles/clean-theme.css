@@ -524,6 +524,110 @@ body {
   height: 16px;
 }
 
+/* Options Buttons (AI-provided clickable choices) */
+.options-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.option-btn {
+  padding: var(--space-2) var(--space-3);
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.option-btn:hover {
+  background: var(--primary-100);
+  border-color: var(--primary-400);
+  transform: translateY(-1px);
+}
+
+/* Missing Info Indicator */
+.need-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  font-size: 0.8rem;
+}
+
+.need-label {
+  color: var(--gray-500);
+  font-weight: 500;
+}
+
+.need-tag {
+  padding: 2px 8px;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Image Gallery */
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.image-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  background: var(--bg-primary);
+}
+
+.image-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 300px;
+  object-fit: cover;
+}
+
+.download-btn {
+  display: block;
+  padding: var(--space-2);
+  text-align: center;
+  background: var(--primary-500);
+  color: white;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.download-btn:hover {
+  background: var(--primary-600);
+}
+
+/* Execution Proof Badge */
+.proof-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--space-2);
+  padding: 2px 8px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
 /* Typing Indicator */
 .typing {
   display: flex;
@@ -667,6 +771,210 @@ body {
 .trust-item svg {
   width: 14px;
   height: 14px;
+}
+
+/* =============================================================================
+   Agent Steps - Collapsible thinking/tool progress
+   ============================================================================= */
+
+.agent-steps {
+  margin-top: var(--space-2);
+}
+
+.steps-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+}
+
+.steps-toggle:hover {
+  background: var(--gray-100);
+  color: var(--text-secondary);
+}
+
+.steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-1);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--border-light);
+}
+
+.step {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  animation: stepIn 0.2s ease;
+}
+
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.step-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+}
+
+.step-thinking .step-icon {
+  color: var(--primary-500);
+  background: var(--primary-50);
+}
+
+.step-tool_call .step-icon {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+.step-tool_result .step-icon {
+  color: var(--success);
+  background: var(--success-light);
+}
+
+.step-error .step-icon {
+  color: var(--error);
+  background: var(--error-light);
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.step-label {
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.step-content {
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Live Steps - Shown during streaming */
+
+.live-steps {
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  border-top-left-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+}
+
+.live-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+}
+
+.live-step-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  animation: stepPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes stepPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.live-step.step-thinking .live-step-icon {
+  color: var(--primary-500);
+  background: var(--primary-50);
+}
+
+.live-step.step-tool_call .live-step-icon {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+.live-step.step-tool_result .live-step-icon {
+  color: var(--success);
+  background: var(--success-light);
+}
+
+.live-step-text {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.live-steps-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+  padding-left: 30px;
+}
+
+/* Tool Buttons (from tool results like meeting links, payment links) */
+
+.tool-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: var(--transition-fast);
+  cursor: pointer;
+}
+
+.tool-btn-primary {
+  background: var(--primary-600);
+  color: white;
+}
+
+.tool-btn-primary:hover {
+  background: var(--primary-700);
+}
+
+.tool-btn-secondary {
+  background: var(--gray-100);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.tool-btn-secondary:hover {
+  background: var(--gray-200);
 }
 
 /* =============================================================================

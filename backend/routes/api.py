@@ -27,27 +27,24 @@ POST /api/chat/action
 }
 """
 from fastapi import APIRouter, HTTPException, Request, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any, List
 import uuid
 import time
+import json
 import logging
 
-# Try new unified brain first, then intelligent brain, then old brain
-try:
-    from ..core.unified_brain import get_brain, chat_handler
-    USE_UNIFIED_BRAIN = True
-    USE_INTELLIGENT_BRAIN = False
-except ImportError:
-    USE_UNIFIED_BRAIN = False
-    try:
-        from ..core.intelligent_brain import get_chat_brain, handle_button_action
-        USE_INTELLIGENT_BRAIN = True
-    except ImportError:
-        USE_INTELLIGENT_BRAIN = False
+# Primary brain - brain.py (ReAct agent with streaming)
+from ..core.brain import chat, get_history, save_user_data, get_user_data, brain
 
-from ..core.brain import chat, get_history, save_user_data, get_user_data
+# Optional: unified brain for capabilities endpoint
+try:
+    from ..core.unified_brain import get_brain as get_unified_brain
+    UNIFIED_BRAIN_AVAILABLE = True
+except ImportError:
+    UNIFIED_BRAIN_AVAILABLE = False
+    get_unified_brain = None
 from ..core.validation import (
     ChatRequest as ValidatedChatRequest,
     validate_request,
@@ -86,7 +83,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     message: str
     type: str  # answer, task, cancelled, clarify
-    status: Optional[str] = None  # need_info, confirm, done, collecting_info, awaiting_selection, otp_sent
+    status: Optional[str] = None  # need_info, confirm, done
     session_id: str
     need: Optional[List[str]] = None  # missing info fields
     summary: Optional[str] = None  # task summary for confirmation
@@ -94,6 +91,7 @@ class ChatResponse(BaseModel):
     proof: Optional[Dict] = None  # proof of execution
     ui_components: Optional[Dict] = None  # interactive UI components
     task_id: Optional[str] = None  # active task ID
+    steps: Optional[List[Dict]] = None  # agent thinking/tool steps
     response_time_ms: Optional[float] = None
 
 
@@ -186,15 +184,10 @@ async def chat_endpoint(
     try:
         # Log the request (without full message for privacy)
         logger.info(f"Chat request - session: {session_id[:8]}..., user: {user_id}, length: {len(request.message)}")
-        
-        # Use unified brain if available (the new real execution engine)
-        if USE_UNIFIED_BRAIN:
-            result = await chat_handler(request.message, user_id)
-        elif USE_INTELLIGENT_BRAIN:
-            brain = get_chat_brain()
-            result = await brain.process_message(request.message, session_id, user_id)
-        else:
-            result = await chat(session_id, request.message, user_id)
+
+        # Use brain.py - has full task flow (plan -> collect info -> confirm -> execute)
+        # brain.py now delegates execution to engine.py for proof generation
+        result = await chat(session_id, request.message, user_id)
         
         response_time = (time.time() - start_time) * 1000
         
@@ -209,6 +202,7 @@ async def chat_endpoint(
             proof=result.get("proof"),
             ui_components=result.get("ui_components"),
             task_id=result.get("task_id"),
+            steps=result.get("steps"),
             response_time_ms=round(response_time, 2)
         )
         
@@ -222,12 +216,52 @@ async def chat_endpoint(
     except Exception as e:
         logger.error(f"Chat error: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail={
                 "error": "An unexpected error occurred. Please try again.",
                 "code": "internal_error"
             }
         )
+
+
+# =============================================================================
+# SSE STREAMING ENDPOINT
+# =============================================================================
+
+@router.post("/api/chat/stream")
+async def chat_stream_endpoint(
+    request: ChatRequest,
+    raw_request: Request,
+    _: None = Depends(check_rate_limit)
+):
+    """
+    Streaming chat endpoint using Server-Sent Events.
+    Yields real-time agent events: thinking, tool_call, tool_result, answer.
+    """
+    session_id = request.session_id or str(uuid.uuid4())
+    user_id = request.user_id or "default"
+
+    async def generate():
+        try:
+            async for event in brain.process_stream(session_id, request.message, user_id):
+                event_data = event.to_dict()
+                yield f"data: {json.dumps(event_data)}\n\n"
+
+            # Send done event with session_id
+            yield f"data: {json.dumps({'type': 'done', 'session_id': session_id})}\n\n"
+        except Exception as e:
+            logger.error(f"Stream error: {str(e)}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'content': 'An error occurred during processing.'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 # =============================================================================
@@ -300,23 +334,14 @@ async def button_action_endpoint(
     
     try:
         logger.info(f"Button action - session: {request.session_id[:8]}..., action: {request.action}")
-        
-        if not USE_INTELLIGENT_BRAIN:
-            # Fallback: convert action to message
-            action_messages = {
-                "confirm_yes": "yes",
-                "confirm_no": "no",
-            }
-            message = action_messages.get(request.action, request.action)
-            result = await chat(request.session_id, message, request.user_id or "default")
-        else:
-            result = await handle_button_action(
-                action=request.action,
-                button_id=request.button_id,
-                metadata=request.metadata or {},
-                session_id=request.session_id,
-                user_id=request.user_id or "default"
-            )
+
+        # Convert button action to a chat message and run through brain
+        action_messages = {
+            "confirm_yes": "yes",
+            "confirm_no": "no",
+        }
+        message = action_messages.get(request.action, request.action)
+        result = await chat(request.session_id, message, request.user_id or "default")
         
         response_time = (time.time() - start_time) * 1000
         
@@ -364,8 +389,8 @@ async def get_capabilities():
     Helps frontend show what's available.
     """
     try:
-        if USE_UNIFIED_BRAIN:
-            brain = get_brain()
+        if UNIFIED_BRAIN_AVAILABLE and get_unified_brain:
+            brain = get_unified_brain()
             capabilities = brain.get_capabilities()
             return {
                 "status": "operational",
@@ -373,11 +398,19 @@ async def get_capabilities():
                 "capabilities": capabilities
             }
         else:
+            # Build capabilities from engine Config
+            from ..core.engine import Config
+            services = Config.get_available_services()
             return {
-                "status": "degraded",
-                "brain": "legacy",
+                "status": "operational",
+                "brain": "primary",
                 "capabilities": {
-                    "chat": {"available": True, "description": "Basic chat only"}
+                    "chat": {"available": True, "description": "Full conversational AI with task execution"},
+                    "email": {"available": services.get("email_smtp") or services.get("email_sendgrid"), "description": "Send real emails"},
+                    "image_generation": {"available": True, "description": "Generate images (Pollinations AI free)"},
+                    "web_search": {"available": True, "description": "Search the web (DuckDuckGo)"},
+                    "meetings": {"available": True, "description": "Create Jitsi meeting links"},
+                    "payments": {"available": services.get("payments"), "description": "Payment links (Razorpay/UPI)"},
                 }
             }
     except Exception as e:

@@ -499,19 +499,19 @@ class WebSearchProvider:
                     url = url.group(1) if url else ""
                     from urllib.parse import unquote
                     url = unquote(url)
-                
+
                 results.append({
                     "title": title.strip(),
                     "url": url,
                     "snippet": snippet.strip()
                 })
-                
-                return {
-                    "success": True,
-                    "query": query,
-                    "results": results,
-                    "count": len(results)
-                }
+
+            return {
+                "success": True,
+                "query": query,
+                "results": results,
+                "count": len(results)
+            }
 
 
 class PaymentProvider:
@@ -958,24 +958,73 @@ class PaymentExecutor(BaseExecutor):
 
 class SearchExecutor(BaseExecutor):
     """Execute web search tasks"""
-    
+
     def __init__(self):
         self.provider = WebSearchProvider()
-    
+
     def get_required_fields(self) -> List[str]:
         return ["query"]
-    
+
     async def execute(self, task: Task) -> Dict:
         data = task.collected_data
         query = data["query"]
         max_results = data.get("max_results", 5)
-        
+
         result = await self.provider.search(query, max_results)
-        
+
         return {
             "success": True,
             "action": "search_completed",
             **result
+        }
+
+
+class MeetingExecutor(BaseExecutor):
+    """Execute meeting scheduling tasks"""
+
+    def get_required_fields(self) -> List[str]:
+        return ["title"]
+
+    async def execute(self, task: Task) -> Dict:
+        data = task.collected_data
+        title = data.get("title", "Meeting")
+        time_str = data.get("time", "")
+        participants = data.get("participants", [])
+
+        if isinstance(participants, str):
+            participants = [p.strip() for p in participants.split(",")]
+
+        # Generate Jitsi link (free, no API key needed)
+        meeting_id = f"supermanager-{secrets.token_hex(8)}"
+        link = f"https://meet.jit.si/{meeting_id}"
+
+        # Send email invites if SMTP is configured
+        invite_status = []
+        if Config.SMTP_EMAIL and Config.SMTP_PASSWORD:
+            smtp = SMTPProvider()
+            for p in participants:
+                if "@" in p:
+                    email_body = (
+                        f"<h2>Meeting Invitation</h2>"
+                        f"<p>You're invited to: <strong>{title}</strong></p>"
+                        f"<p>Time: {time_str}</p>"
+                        f"<p>Join here: <a href=\"{link}\">{link}</a></p>"
+                        f"<br><p>Sent via Super Manager AI</p>"
+                    )
+                    try:
+                        await smtp.send(p, f"Meeting: {title}", email_body, html=True)
+                        invite_status.append({"email": p, "status": "sent"})
+                    except Exception:
+                        invite_status.append({"email": p, "status": "failed"})
+
+        return {
+            "success": True,
+            "action": "meeting_created",
+            "title": title,
+            "time": time_str,
+            "link": link,
+            "invites": invite_status,
+            "participants": participants
         }
 
 
@@ -996,6 +1045,7 @@ class TaskOrchestrator:
     def __init__(self):
         self.executors: Dict[TaskType, BaseExecutor] = {
             TaskType.SEND_EMAIL: EmailExecutor(),
+            TaskType.SCHEDULE_MEETING: MeetingExecutor(),
             TaskType.GENERATE_IMAGE: ImageExecutor(),
             TaskType.CREATE_LOGO: ImageExecutor(),  # Same as image
             TaskType.BOOK_TICKETS: TicketExecutor(),

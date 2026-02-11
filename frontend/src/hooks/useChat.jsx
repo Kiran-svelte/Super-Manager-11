@@ -19,6 +19,7 @@ export function useChat(options = {}) {
     apiUrl = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com',
     onError = null,
     maxRetries = 3,
+    userId = null,
   } = options;
 
   const [messages, setMessages] = useState([]);
@@ -63,7 +64,8 @@ export function useChat(options = {}) {
           },
           body: JSON.stringify({
             message: content.trim(),
-            conversation_id: conversationId,
+            session_id: conversationId,
+            user_id: userId,
           }),
           signal: abortControllerRef.current.signal,
         });
@@ -75,12 +77,12 @@ export function useChat(options = {}) {
 
         const data = await response.json();
         
-        // Update conversation ID
-        if (data.conversation_id) {
-          setConversationId(data.conversation_id);
+        // Update session/conversation ID
+        if (data.session_id || data.conversation_id) {
+          setConversationId(data.session_id || data.conversation_id);
         }
 
-        // Add assistant message
+        // Add assistant message with full response data
         const assistantMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -88,6 +90,12 @@ export function useChat(options = {}) {
           timestamp: new Date().toISOString(),
           metadata: data.metadata,
           actions: data.actions,
+          type: data.type,
+          status: data.status,
+          options: data.options,
+          ui_components: data.ui_components,
+          proof: data.proof,
+          need: data.need,
         };
         
         setMessages(prev => [...prev, assistantMessage]);

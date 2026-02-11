@@ -34,6 +34,7 @@ class IntentType(Enum):
     """What the user wants to do"""
     SEND_EMAIL = "send_email"
     GENERATE_IMAGE = "generate_image"
+    SCHEDULE_MEETING = "schedule_meeting"
     BOOK_TICKET = "book_ticket"
     MAKE_PAYMENT = "make_payment"
     WEB_SEARCH = "web_search"
@@ -253,6 +254,7 @@ WHEN YOU DON'T KNOW:
             "send_email": TaskType.SEND_EMAIL,
             "generate_image": TaskType.GENERATE_IMAGE,
             "create_logo": TaskType.CREATE_LOGO,
+            "schedule_meeting": TaskType.SCHEDULE_MEETING,
             "book_ticket": TaskType.BOOK_TICKETS,
             "make_payment": TaskType.MAKE_PAYMENT,
             "web_search": TaskType.SEARCH_WEB
@@ -417,10 +419,21 @@ WHEN YOU DON'T KNOW:
         # Save to conversation
         self.conversation_history.append({"role": "assistant", "content": message})
         
+        # Map TaskType to IntentType (they don't share all values)
+        _task_to_intent = {
+            TaskType.SEND_EMAIL: IntentType.SEND_EMAIL,
+            TaskType.SCHEDULE_MEETING: IntentType.SCHEDULE_MEETING,
+            TaskType.GENERATE_IMAGE: IntentType.GENERATE_IMAGE,
+            TaskType.CREATE_LOGO: IntentType.GENERATE_IMAGE,
+            TaskType.BOOK_TICKETS: IntentType.BOOK_TICKET,
+            TaskType.MAKE_PAYMENT: IntentType.MAKE_PAYMENT,
+            TaskType.SEARCH_WEB: IntentType.WEB_SEARCH,
+        }
+
         return BrainResponse(
             message=message,
             success=True,
-            intent=IntentType(task_type.value) if hasattr(IntentType, task_type.value.upper()) else IntentType.GENERAL_CHAT,
+            intent=_task_to_intent.get(task_type, IntentType.GENERAL_CHAT),
             execution_proof=proof,
             ui_elements=ui_elements if ui_elements else None
         )
@@ -522,7 +535,9 @@ WHEN YOU DON'T KNOW:
         # Add available services info
         available = self.config.get_available_services()
         if available:
-            message += f"\n\n✅ Currently available services: {', '.join(available)}"
+            active_services = [k for k, v in available.items() if v]
+            if active_services:
+                message += f"\n\nCurrently available services: {', '.join(active_services)}"
         
         self.conversation_history.append({"role": "assistant", "content": message})
         
@@ -562,7 +577,7 @@ WHEN YOU DON'T KNOW:
             
             return {
                 "email": {
-                    "available": "email" in available,
+                    "available": available.get("email_sendgrid") or available.get("email_smtp", False),
                     "provider": "SendGrid" if self.config.SENDGRID_API_KEY else "SMTP" if self.config.SMTP_EMAIL else None,
                     "description": "Send real emails to any recipient",
                     "auto_acquirable": True,
@@ -587,7 +602,7 @@ WHEN YOU DON'T KNOW:
                     "description": "Book theme park and movie tickets"
                 },
                 "payments": {
-                    "available": "payment" in available,
+                    "available": available.get("payments", False),
                     "provider": "Razorpay" if self.config.RAZORPAY_KEY_ID else "UPI Direct",
                     "description": "Create payment links or UPI payments",
                     "auto_acquirable": True,
@@ -608,7 +623,7 @@ WHEN YOU DON'T KNOW:
             # Fallback to basic status
             return {
                 "email": {
-                    "available": "email" in available,
+                    "available": available.get("email_sendgrid") or available.get("email_smtp", False),
                     "provider": "SendGrid" if self.config.SENDGRID_API_KEY else "SMTP" if self.config.SMTP_EMAIL else None,
                     "description": "Send real emails to any recipient"
                 },
@@ -628,7 +643,7 @@ WHEN YOU DON'T KNOW:
                     "description": "Book theme park and movie tickets"
                 },
                 "payments": {
-                    "available": "payment" in available,
+                    "available": available.get("payments", False),
                     "provider": "Razorpay" if self.config.RAZORPAY_KEY_ID else "UPI Direct",
                     "description": "Create payment links or UPI payments"
                 },
