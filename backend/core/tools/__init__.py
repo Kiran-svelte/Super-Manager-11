@@ -14,6 +14,11 @@ from .email_tool import SendEmailTool
 from .meeting import CreateMeetingTool
 from .payment import PaymentLinkTool
 from .python_exec import PythonExecTool
+from .memory_tool import MemoryTool
+from .reminder_tool import ReminderTool
+from .document_tool import DocumentTool
+from .weather_tool import WeatherTool
+from .datetime_tool import DateTimeTool
 
 
 class ToolRegistry:
@@ -33,6 +38,11 @@ class ToolRegistry:
             CreateMeetingTool(),
             PaymentLinkTool(),
             PythonExecTool(),
+            MemoryTool(),
+            ReminderTool(),
+            DocumentTool(),
+            WeatherTool(),
+            DateTimeTool(),
         ]
         for tool in default_tools:
             self.tools[tool.name] = tool

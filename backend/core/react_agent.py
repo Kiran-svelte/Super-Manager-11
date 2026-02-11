@@ -61,47 +61,89 @@ class ReactAgent:
         self.max_steps = 10
         self.groq_key = os.getenv("GROQ_API_KEY", "")
 
-    def _build_system_prompt(self) -> str:
+    def _build_system_prompt(self, feedback_context: str = "") -> str:
         """Build the system prompt with all available tools"""
         tools_section = self.tools.get_tools_prompt()
 
-        return f"""You are Super Manager, a general-purpose AI assistant that can handle ANY request.
+        feedback_section = ""
+        if feedback_context:
+            feedback_section = f"""
+USER FEEDBACK HISTORY:
+{feedback_context}
+Use this feedback to improve your responses. Avoid patterns that got negative feedback. Repeat patterns that got positive feedback.
+"""
 
-You have access to these tools:
+        return f"""You are Super Manager, a highly capable AI personal assistant. You GENUINELY complete tasks for users - providing real, actionable results, not surface-level responses.
 
 AVAILABLE TOOLS:
 {tools_section}
 
-HOW TO RESPOND:
+RESPONSE FORMAT:
 
-1. If you need to use a tool, respond with:
-<think>Your reasoning about what to do next</think>
+1. To use a tool:
+<think>Your detailed reasoning about what to do and why</think>
 <tool_call>{{"tool": "tool_name", "params": {{"key": "value"}}}}</tool_call>
 
-2. If you have enough information to answer, respond with:
-<think>I have all the information needed</think>
-<answer>Your final response to the user</answer>
+2. To give your final answer:
+<think>Summary of what I found/did</think>
+<answer>Your complete, detailed response to the user</answer>
 
-3. If you need clarification from the user, respond with:
-<answer>Your question to the user</answer>
+3. To ask the user for clarification:
+<answer>Your specific question about what you need to know</answer>
+
+PLANNING & EXECUTION:
+- For complex requests, plan your approach FIRST in your <think> tag before acting.
+- Break multi-step tasks into individual tool calls: search → browse → analyze → answer.
+- Use multiple tools in sequence to gather complete information.
+- If a search gives partial results, browse the most relevant URLs for details.
+- Always verify you have ENOUGH information before giving your final answer.
+- If you need 3 pieces of data, make 3 tool calls - don't stop after 1.
+
+QUALITY STANDARDS:
+- Give SPECIFIC, ACTIONABLE answers with real data (numbers, names, prices, links).
+- Don't just list raw search results - synthesize, compare, and recommend.
+- When generating content (emails, images, documents), make it professional and complete.
+- Include relevant details: prices, ratings, addresses, dates, specifications.
+- If you searched the web, provide SOURCE URLs so users can verify.
+- For comparisons, create clear structured comparisons, not vague summaries.
+
+TOOL USAGE EXAMPLES:
+
+Example 1 - Research task:
+User: "Find best laptops under $800"
+<think>I need to search for laptops, then browse a review site for detailed specs and prices.</think>
+<tool_call>{{"tool": "web_search", "params": {{"query": "best laptops under 800 dollars 2025 reviews"}}}}</tool_call>
+[After getting results, browse top result for details, then give comprehensive comparison]
+
+Example 2 - Image generation:
+User: "Create a logo for my bakery called Sweet Dreams"
+<think>I'll generate a professional logo with bakery-related imagery.</think>
+<tool_call>{{"tool": "generate_image", "params": {{"prompt": "Professional bakery logo for 'Sweet Dreams', elegant typography, cupcake icon, pastel pink and gold colors, minimalist design", "style": "logo"}}}}</tool_call>
+[After generation, present the result with the rendered image]
+
+Example 3 - Multi-step task:
+User: "Send a meeting invite to john@example.com for our project review"
+<think>I need to create a meeting link first, then compose and send an email with the link.</think>
+<tool_call>{{"tool": "create_meeting", "params": {{"title": "Project Review Meeting"}}}}</tool_call>
+[After getting meeting link, compose email with the link and send it]
 
 RULES:
-- Think step by step. Use tools when you need real, current data.
-- You can call ONE tool per turn. After getting the result, you'll think again.
-- Be honest. If you can't do something, say so.
-- For actions like sending email or making payment, the system will ask the user to confirm first.
-- When browsing websites, summarize the relevant information concisely.
+- ONE tool call per turn. After getting the result, think again about next steps.
+- For actions like sending email or making payment, the system handles user confirmation.
+- NEVER fabricate data. Use tools for real information.
+- For simple questions, math, or general knowledge, answer directly.
+- Be conversational, specific, and genuinely helpful.
 - Maximum {self.max_steps} tool calls per request.
-- NEVER make up data. Always use tools to get real information.
-- For simple questions, math, or general knowledge, answer directly without tools.
-- Be conversational and helpful. Don't be robotic.
-- Keep answers concise but informative."""
+- When you reach your final answer, make it comprehensive and well-formatted.
+{feedback_section}"""
 
     async def run(
         self,
         user_message: str,
         history: List[Dict[str, str]],
         user_id: str = "default",
+        feedback_context: str = "",
+        session_id: str = "",
     ) -> AsyncGenerator[AgentEvent, None]:
         """
         Main ReAct loop. Yields AgentEvent objects for streaming.
@@ -121,7 +163,7 @@ RULES:
             )
             return
 
-        system_prompt = self._build_system_prompt()
+        system_prompt = self._build_system_prompt(feedback_context)
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(history)
         messages.append({"role": "user", "content": user_message})
@@ -154,11 +196,17 @@ RULES:
             # If we have a tool call, execute it
             if tool_call_str:
                 try:
-                    parsed = json.loads(tool_call_str)
+                    # Clean up common LLM JSON issues
+                    cleaned = tool_call_str.strip()
+                    # Strip markdown code fences
+                    cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned)
+                    cleaned = re.sub(r'\s*```$', '', cleaned)
+                    # Fix trailing commas
+                    cleaned = re.sub(r',\s*}', '}', cleaned)
+                    cleaned = re.sub(r',\s*]', ']', cleaned)
+                    parsed = json.loads(cleaned)
                 except json.JSONDecodeError:
-                    # Try to fix common JSON issues
                     try:
-                        # Replace single quotes with double quotes
                         fixed = tool_call_str.replace("'", '"')
                         parsed = json.loads(fixed)
                     except json.JSONDecodeError:
@@ -209,6 +257,9 @@ RULES:
                 )
 
                 try:
+                    # Pass context params for memory/reminder tools
+                    tool_params["_user_id"] = user_id
+                    tool_params["_session_id"] = session_id
                     result = await tool.execute(**tool_params)
                 except Exception as e:
                     logger.error(f"Tool {tool_name} failed: {e}")
@@ -226,9 +277,11 @@ RULES:
                 )
 
                 scratchpad.append({"role": "assistant", "content": llm_response})
+                remaining = self.max_steps - step - 1
+                budget_note = f" [{remaining} steps remaining]" if remaining <= 3 else ""
                 scratchpad.append({
                     "role": "user",
-                    "content": f"<tool_result>{result.output}</tool_result>",
+                    "content": f"<tool_result>{result.output}</tool_result>{budget_note}",
                 })
 
             else:
@@ -304,8 +357,8 @@ RULES:
             # Fallback: just use the tool result as the answer
             yield AgentEvent(type="answer", content=result.output)
 
-    async def _call_groq(self, messages: List[Dict[str, str]]) -> str:
-        """Call Groq API"""
+    async def _call_groq(self, messages: List[Dict[str, str]], retry: bool = True) -> str:
+        """Call Groq API with retry on 429 rate limit"""
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 GROQ_URL,
@@ -317,10 +370,17 @@ RULES:
                     "model": GROQ_MODEL,
                     "messages": messages,
                     "temperature": 0.3,
-                    "max_tokens": 1024,
+                    "max_tokens": 4096,
                     "top_p": 0.9,
                 },
             )
+
+            # Retry once on rate limit
+            if response.status_code == 429 and retry:
+                import asyncio
+                logger.warning("Groq rate limit hit, retrying in 2s...")
+                await asyncio.sleep(2)
+                return await self._call_groq(messages, retry=False)
 
             if response.status_code != 200:
                 error_text = response.text[:200]

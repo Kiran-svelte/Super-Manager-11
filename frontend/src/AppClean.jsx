@@ -7,7 +7,7 @@ import {
   Send, Check, X, Loader2, Bot, User, MessageSquare,
   Search, Mail, Calendar, ShoppingCart, AlertCircle,
   Shield, Lock, Zap, Settings, ChevronDown, ChevronRight,
-  Brain, Wrench, Eye
+  Brain, Wrench, Eye, ThumbsUp, ThumbsDown, Download, Clock
 } from 'lucide-react'
 import AISettings from './components/AISettings'
 import './styles/clean-theme.css'
@@ -200,10 +200,79 @@ function LiveSteps({ steps }) {
 }
 
 // =============================================================================
+// Feedback Buttons - Red/Green with dopamine/correction animations
+// =============================================================================
+
+function FeedbackButtons({ messageIndex, existingFeedback, onFeedback }) {
+  const [animating, setAnimating] = useState(null)
+  const [showComment, setShowComment] = useState(false)
+  const [comment, setComment] = useState('')
+
+  const given = existingFeedback?.rating || null
+
+  const handleFeedback = (rating) => {
+    if (given) return // Already given
+    setAnimating(rating)
+    setTimeout(() => setAnimating(null), 700)
+    if (rating === 'negative') {
+      setShowComment(true)
+    }
+    onFeedback(messageIndex, rating, null)
+  }
+
+  const submitComment = () => {
+    if (comment.trim()) {
+      onFeedback(messageIndex, 'negative', comment.trim())
+    }
+    setShowComment(false)
+    setComment('')
+  }
+
+  return (
+    <div className="feedback-group">
+      <button
+        className={`feedback-btn green ${given === 'positive' ? 'selected' : ''} ${animating === 'positive' ? 'dopamine-animate' : ''}`}
+        onClick={() => handleFeedback('positive')}
+        disabled={!!given}
+        title="Good response"
+      >
+        <ThumbsUp size={14} />
+      </button>
+      <button
+        className={`feedback-btn red ${given === 'negative' ? 'selected' : ''} ${animating === 'negative' ? 'correction-animate' : ''}`}
+        onClick={() => handleFeedback('negative')}
+        disabled={!!given}
+        title="Bad response"
+      >
+        <ThumbsDown size={14} />
+      </button>
+      {showComment && (
+        <div className="feedback-comment">
+          <input
+            type="text"
+            placeholder="What should I do differently?"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submitComment()}
+            autoFocus
+          />
+          <button onClick={submitComment} className="feedback-comment-btn">
+            <Send size={12} />
+          </button>
+          <button onClick={() => setShowComment(false)} className="feedback-comment-close">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
 // Message Component
 // =============================================================================
 
-function Message({ message, isLast, onConfirm, onOptionClick, loading }) {
+function Message({ message, isLast, onConfirm, onOptionClick, loading, messageIndex, feedbackMap, onFeedback }) {
   const { role, text, status, options, ui_components, proof, need, steps, timestamp, _building } = message
   const showConfirm = status === 'confirm' && isLast && !loading
 
@@ -306,6 +375,34 @@ function Message({ message, isLast, onConfirm, onOptionClick, loading }) {
           </div>
         )}
 
+        {/* File download */}
+        {ui_components && ui_components.type === 'file_download' && (
+          <div className="file-download">
+            <a
+              href={ui_components.url}
+              download={ui_components.filename}
+              className="file-download-btn"
+            >
+              <Download size={16} />
+              <span>{ui_components.filename}</span>
+              <span className="file-size">{ui_components.size}</span>
+            </a>
+          </div>
+        )}
+
+        {/* Info card */}
+        {ui_components && ui_components.type === 'info_card' && (
+          <div className="info-card">
+            <div className="info-card-title">{ui_components.title}</div>
+            {ui_components.data && Object.entries(ui_components.data).map(([key, value]) => (
+              <div key={key} className="info-card-row">
+                <span className="info-card-label">{key}</span>
+                <span className="info-card-value">{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Execution proof */}
         {proof && proof.proof_id && (
           <div className="proof-badge">
@@ -318,6 +415,15 @@ function Message({ message, isLast, onConfirm, onOptionClick, loading }) {
           <div className="message-time">
             {formatTime(new Date(timestamp))}
           </div>
+        )}
+
+        {/* Feedback buttons (only for completed AI messages) */}
+        {role === 'ai' && !_building && text && text !== 'Thinking...' && (
+          <FeedbackButtons
+            messageIndex={messageIndex}
+            existingFeedback={feedbackMap?.[messageIndex]}
+            onFeedback={onFeedback}
+          />
         )}
       </div>
     </div>
@@ -357,6 +463,7 @@ function App() {
   const [sessionId, setSessionId] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
   const [userId, setUserId] = useState(null)
+  const [feedbackMap, setFeedbackMap] = useState({})
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -442,6 +549,10 @@ function App() {
 
           if (event.type === 'thinking' || event.type === 'tool_call' || event.type === 'tool_result') {
             steps.push(event)
+            // Extract ui_components from tool_result events (images, buttons, etc.)
+            if (event.type === 'tool_result' && event.data?.ui_components) {
+              uiComponents = event.data.ui_components
+            }
             // Show live progress
             setMessages(prev => {
               const updated = [...prev]
@@ -579,6 +690,33 @@ function App() {
     sendMessage(value)
   }
 
+  const handleFeedback = useCallback(async (messageIndex, rating, comment) => {
+    // Update local state immediately
+    setFeedbackMap(prev => ({
+      ...prev,
+      [messageIndex]: { rating, comment }
+    }))
+
+    // Send to backend
+    try {
+      await fetch(`${API}/api/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          user_id: userId,
+          message_index: messageIndex,
+          rating,
+          comment: comment || null,
+          answer_preview: messages[messageIndex]?.text?.substring(0, 300) || '',
+        }),
+      })
+    } catch (err) {
+      // Silently fail - feedback is best-effort
+      console.warn('Feedback submission failed:', err)
+    }
+  }, [sessionId, userId, messages])
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -631,6 +769,9 @@ function App() {
                 onConfirm={handleConfirm}
                 onOptionClick={handleOptionClick}
                 loading={loading}
+                messageIndex={i}
+                feedbackMap={feedbackMap}
+                onFeedback={handleFeedback}
               />
             ))}
             {loading && !messages.some(m => m._building) && <TypingIndicator />}

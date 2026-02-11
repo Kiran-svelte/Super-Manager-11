@@ -978,6 +978,250 @@ body {
 }
 
 /* =============================================================================
+   Feedback Buttons (Dopamine / Correction)
+   ============================================================================= */
+
+.feedback-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.feedback-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-muted);
+}
+
+.feedback-btn:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+
+.feedback-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.feedback-btn.green {
+  color: var(--success);
+  border-color: var(--success);
+  background: var(--success-light);
+}
+
+.feedback-btn.green:hover:not(:disabled) {
+  background: var(--success);
+  color: white;
+}
+
+.feedback-btn.red {
+  color: var(--error);
+  border-color: var(--error);
+  background: var(--error-light);
+}
+
+.feedback-btn.red:hover:not(:disabled) {
+  background: var(--error);
+  color: white;
+}
+
+.feedback-btn.green.selected {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
+
+.feedback-btn.red.selected {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+}
+
+/* Dopamine animation - green pulse */
+.dopamine-animate {
+  animation: dopaminePulse 0.6s ease;
+}
+
+@keyframes dopaminePulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.3); box-shadow: 0 0 12px rgba(34, 197, 94, 0.5); }
+  60% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* Correction animation - red shake */
+.correction-animate {
+  animation: correctionShake 0.5s ease;
+}
+
+@keyframes correctionShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+.feedback-comment {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  animation: messageIn 0.2s ease;
+}
+
+.feedback-comment input {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+  background: var(--error-light);
+  color: var(--text-primary);
+}
+
+.feedback-comment input::placeholder {
+  color: var(--text-muted);
+}
+
+.feedback-comment button {
+  padding: var(--space-2) var(--space-3);
+  background: var(--error);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.feedback-comment button:hover {
+  background: #dc2626;
+}
+
+/* =============================================================================
+   File Download Component
+   ============================================================================= */
+
+.file-download {
+  margin-top: var(--space-3);
+}
+
+.file-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--primary-50);
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-md);
+  color: var(--primary-700);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.file-download-btn:hover {
+  background: var(--primary-100);
+  border-color: var(--primary-400);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.file-download-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.file-download-btn .file-size {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: var(--space-1);
+}
+
+/* =============================================================================
+   Info Card Component
+   ============================================================================= */
+
+.info-card {
+  margin-top: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.info-card-title {
+  padding: var(--space-3) var(--space-4);
+  background: var(--primary-50);
+  border-bottom: 1px solid var(--border-light);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--primary-800);
+}
+
+.info-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.85rem;
+}
+
+.info-card-row:last-child {
+  border-bottom: none;
+}
+
+.info-card-key {
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.info-card-value {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+}
+
+/* =============================================================================
+   Reminder Badge
+   ============================================================================= */
+
+.reminder-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  background: var(--warning-light);
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #92400e;
+  margin-bottom: var(--space-2);
+}
+
+.reminder-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* =============================================================================
    Responsive
    ============================================================================= */
 

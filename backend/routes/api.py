@@ -119,6 +119,15 @@ class ErrorResponse(BaseModel):
     retry_after: Optional[int] = None
 
 
+class FeedbackRequest(BaseModel):
+    session_id: str = Field(..., min_length=1, max_length=100)
+    user_id: Optional[str] = Field(None, max_length=100)
+    message_index: int = Field(..., ge=0)
+    rating: str = Field(..., pattern=r"^(positive|negative)$")
+    comment: Optional[str] = Field(None, max_length=500)
+    answer_preview: Optional[str] = Field(None, max_length=300)
+
+
 # =============================================================================
 # Rate Limiting Dependency
 # =============================================================================
@@ -419,3 +428,32 @@ async def get_capabilities():
             "status": "error",
             "error": str(e)
         }
+
+
+# =============================================================================
+# FEEDBACK ENDPOINT
+# =============================================================================
+
+@router.post("/api/feedback")
+async def submit_feedback(request: FeedbackRequest):
+    """
+    Submit user feedback (positive/negative) for an AI response.
+    This feedback influences future AI behavior.
+    """
+    try:
+        user_id = request.user_id or "default"
+        result = brain.submit_feedback(
+            session_id=request.session_id,
+            user_id=user_id,
+            message_index=request.message_index,
+            rating=request.rating,
+            comment=request.comment,
+            answer_preview=request.answer_preview or "",
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Feedback error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to record feedback.", "code": "feedback_error"}
+        )
