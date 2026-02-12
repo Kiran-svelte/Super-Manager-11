@@ -1,128 +1,78 @@
 # Super Manager - AI Agent System
 
-<div align="center">
+**Transform natural language into executed actions through intelligent conversations.**
 
-**🤖 Transform natural language into executed actions through intelligent conversations.**
-
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
 
-**[Live Demo](https://frontend-snowy-chi-2d9q9syghe.vercel.app)** • **[API](https://super-manager-api.onrender.com)**
-
-</div>
-
 ---
 
-## 🎯 What is Super Manager?
+## What is Super Manager?
 
-Super Manager is an AI-powered assistant that **understands your intent and executes real actions** - not just providing search results.
+Super Manager is an AI-powered assistant that **understands your intent and executes real actions** - not just providing search results or tips.
 
-### The Problem
 ```
 User: "Schedule a meeting with John tomorrow at 3pm"
 
-❌ Traditional AI: "Here are some meeting scheduling tips..."
-✅ Super Manager: Creates the meeting, generates link, sends invite to John
+Traditional AI: "Here are some meeting scheduling tips..."
+Super Manager:  Creates the meeting, generates link, sends invite to John
 ```
 
-### How It Works
+## Features
+
+- **Natural Conversations** - Talk like you would to a human assistant
+- **Meeting Scheduling** - Create Jitsi/Zoom meetings with automatic invites
+- **Email Sending** - Gmail OAuth 2.0 + SMTP fallback
+- **Web Search & Browsing** - Real-time web search and page browsing
+- **Image Generation** - Pollinations AI (free, no API key)
+- **Task Confirmation** - Always confirms before executing sensitive actions
+- **Multi-Provider AI** - Groq (free), OpenAI, Ollama (local)
+- **Real-time Updates** - WebSocket-based live progress
+- **Telegram Integration** - Bot notifications
+
+## Architecture
 
 ```
-INPUT → AI UNDERSTANDS → PLANS → ASKS FOR MISSING INFO → CONFIRMS → EXECUTES → DONE
-```
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---------|-------------|
-| 🗣️ **Natural Conversations** | Talk like you would to a human assistant |
-| 📅 **Meeting Scheduling** | Create Jitsi meetings with automatic invites |
-| 📧 **Email Sending** | Send emails with natural language |
-| 💳 **Payment Reminders** | Smart payment tracking and reminders |
-| 🎂 **Event Planning** | Multi-stage planning for parties/events |
-| 🔄 **Task Confirmation** | Always confirms before executing actions |
-
----
-
-## 🏗️ Architecture
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    FRONTEND (React/Vercel)                    │
-│                     Clean Chat Interface                      │
-└─────────────────────────────┬────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    BACKEND (FastAPI/Render)                   │
-│                                                               │
-│    ┌────────────────────────────────────────────────────┐   │
-│    │                   AI BRAIN                          │   │
-│    │               (backend/core/brain.py)               │   │
-│    │                                                     │   │
-│    │  INPUT → UNDERSTAND → PLAN → CONFIRM → EXECUTE     │   │
-│    │                                                     │   │
-│    │  • Groq LLM (llama-3.3-70b-versatile)             │   │
-│    │  • Task Detection & Planning                       │   │
-│    │  • Missing Info Collection                         │   │
-│    │  • User Confirmation Flow                          │   │
-│    │  • Real Action Execution                           │   │
-│    └────────────────────────────────────────────────────┘   │
-│                              │                               │
-│    ┌────────────────────────┴────────────────────────────┐  │
-│    │                    PLUGINS                           │  │
-│    │  📧 Email  │  📅 Meeting  │  💳 Payment  │  📱 Notify │  │
-│    └─────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
+Frontend (React/Vite)  --->  Backend (FastAPI)  --->  Supabase (PostgreSQL)
+     Vercel                     Render                   Free tier
+       |                          |
+       |--- WebSocket ------------|
+                                  |
+                          AI Brain (ReAct Agent)
+                          |    |    |    |
+                        Groq  Tools  Plugins  Memory
 ```
 
 ### Core Flow
 
-1. **User Input** → Message received via `/api/chat`
-2. **AI Analysis** → Groq LLM determines: question or task?
-3. **If Question** → Direct answer returned
-4. **If Task** → Plan created, missing info requested
-5. **Info Collection** → AI asks for required details
-6. **Confirmation** → User confirms before execution
-7. **Execution** → Real action performed (meeting/email/etc)
-8. **Result** → Success message with details
+1. **User Input** - Message via `/api/chat`
+2. **AI Analysis** - Groq LLM: question or task?
+3. **If Question** - Direct answer
+4. **If Task** - Plan, collect missing info, confirm, execute
+5. **Result** - Action performed with proof
 
----
+## Quick Start
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- Groq API Key (free at [console.groq.com](https://console.groq.com))
-
-### Backend Setup
+### Backend
 
 ```bash
-# Clone and setup
-git clone https://github.com/Kiran-svelte/Super-Manager-11.git
-cd Super-Manager-11
+git clone <repo-url>
+cd super-manager
 
-# Create virtual environment
 python -m venv .venv
-.venv\Scripts\activate  # Windows
-source .venv/bin/activate  # Linux/Mac
+.venv\Scripts\activate        # Windows
+source .venv/bin/activate     # Linux/Mac
 
-# Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
 cp .env.example .env
-# Edit .env with your GROQ_API_KEY
+# Edit .env with your GROQ_API_KEY (free at console.groq.com)
 
-# Run
 python -m uvicorn backend.main:app --reload --port 8000
 ```
 
-### Frontend Setup
+### Frontend
 
 ```bash
 cd frontend
@@ -130,9 +80,20 @@ npm install
 npm run dev
 ```
 
----
+### Docker
 
-## 📡 API Reference
+```bash
+# Core services (backend + redis + frontend)
+docker compose up -d
+
+# With local LLM (Ollama)
+docker compose --profile local-llm up -d
+
+# With monitoring (Prometheus + Grafana)
+docker compose --profile monitoring up -d
+```
+
+## API
 
 ### Main Endpoint
 
@@ -142,143 +103,79 @@ Content-Type: application/json
 
 {
   "message": "Schedule a meeting with John tomorrow at 3pm",
-  "session_id": "optional-session-id"
+  "session_id": "optional",
+  "user_id": "optional"
 }
 ```
 
-### Response Types
+### Other Endpoints
 
-**Answer Response:**
-```json
-{
-  "message": "Hello! How can I help you?",
-  "type": "answer",
-  "session_id": "abc123"
-}
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check |
+| `/api/status` | GET | System status |
+| `/api/metrics` | GET | Performance metrics |
+| `/ws/{user_id}` | WS | Real-time updates |
+| `/api/stream/*` | POST | Streaming responses |
+| `/api/docs` | GET | Interactive API docs |
 
-**Task - Needs Info:**
-```json
-{
-  "message": "Got it! What's John's email address?",
-  "type": "task",
-  "status": "need_info",
-  "need": ["email address"],
-  "session_id": "abc123"
-}
-```
-
-**Task - Confirm:**
-```json
-{
-  "message": "Ready to schedule meeting with John at 3pm tomorrow. Proceed?",
-  "type": "task",
-  "status": "confirm",
-  "summary": "Meeting: John @ 3pm tomorrow",
-  "session_id": "abc123"
-}
-```
-
-**Task - Done:**
-```json
-{
-  "message": "✅ Meeting created! Link: https://meet.jit.si/xxx",
-  "type": "task",
-  "status": "done",
-  "result": {
-    "success": true,
-    "link": "https://meet.jit.si/xxx"
-  },
-  "session_id": "abc123"
-}
-```
-
----
-
-## 🌐 Deployment
-
-### Backend (Render)
-- Auto-deploys from `main` branch
-- URL: `https://super-manager-api.onrender.com`
-
-### Frontend (Vercel)
-- Auto-deploys from `main` branch
-- URL: `https://frontend-snowy-chi-2d9q9syghe.vercel.app`
-
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-Super-Manager-11/
+super-manager/
 ├── backend/
+│   ├── main.py                 # FastAPI app
+│   ├── config.py               # Environment config
+│   ├── database_supabase.py    # Supabase PostgreSQL
 │   ├── core/
-│   │   ├── brain.py          # 🧠 Main AI logic
-│   │   ├── plugins.py        # Plugin system
+│   │   ├── brain.py            # AI brain (ReAct agent)
+│   │   ├── engine.py           # Task execution engine
+│   │   ├── tools/              # 12+ tools (search, email, etc.)
+│   │   ├── ai_providers/       # Groq, OpenAI, Ollama routing
+│   │   ├── realtime/           # WebSocket manager
 │   │   └── ...
 │   ├── routes/
-│   │   ├── api.py            # /api/chat endpoint
+│   │   ├── api.py              # /api/chat (main endpoint)
+│   │   ├── streaming.py        # Streaming responses
 │   │   └── ...
-│   └── main.py               # FastAPI app
+│   └── agent/                  # Agent system (scheduler, orchestrator)
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx           # Chat interface
-│   │   └── App.css           # Styles
-│   └── package.json
-├── .env.example
+│   │   ├── App.jsx             # Chat interface
+│   │   ├── components/         # UI components
+│   │   └── App.css
+│   ├── package.json
+│   └── vite.config.js
+├── infrastructure/
+│   ├── nginx.conf              # Reverse proxy
+│   └── prometheus.yml          # Metrics collection
+├── tests/                      # Test suite
+├── .github/workflows/          # CI/CD pipeline
+├── Dockerfile                  # Multi-stage production build
+├── docker-compose.yml          # Full stack
+├── render.yaml                 # Render deployment
 ├── requirements.txt
-└── README.md
+└── .env.example
 ```
 
----
+## Configuration
 
-## 🔧 Configuration
-
-### Environment Variables
+Required environment variables (see `.env.example`):
 
 ```env
-# Required
-GROQ_API_KEY=your_groq_api_key
-GROQ_MODEL=llama-3.3-70b-versatile
-
-# Optional
-EMAIL_ADDRESS=your_email@gmail.com
-EMAIL_PASSWORD=app_specific_password
+GROQ_API_KEY=your_groq_key          # Free at console.groq.com
+SUPABASE_URL=your_supabase_url      # Free at supabase.com
+SUPABASE_KEY=your_supabase_key
+SECRET_KEY=generate_random_string
 ```
 
----
+## Deployment
 
-## 🤝 Example Conversations
+- **Backend**: Render (free tier) - auto-deploys from `main`
+- **Frontend**: Vercel (free tier) - auto-deploys from `main`
+- **Database**: Supabase (free tier) - PostgreSQL
+- **AI**: Groq (free tier) - llama-3.3-70b-versatile
 
-### Meeting Scheduling
-```
-You: Schedule a meeting with John tomorrow at 3pm
-AI: Got it! What's the meeting about and John's email?
-You: Project review, john@example.com
-AI: Ready to schedule "Project Review" with John at 3pm tomorrow. Proceed?
-You: yes
-AI: ✅ Meeting created! Link: https://meet.jit.si/supermanager-xxx
-    Invite sent to: john@example.com
-```
+## License
 
-### Email Sending
-```
-You: Send an email to sarah@company.com about the deadline extension
-AI: What should the email say?
-You: Hi Sarah, the deadline has been extended to next Friday
-AI: Ready to send email to sarah@company.com. Proceed?
-You: yes
-AI: ✅ Email sent to sarah@company.com!
-```
-
----
-
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-Made with ❤️ by the Super Manager Team
-</div>
+MIT

@@ -247,16 +247,19 @@ async def catch_exceptions_middleware(request: Request, call_next):
         return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 # CORS middleware
+_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:5173",
+]
+_frontend_url = os.getenv("FRONTEND_URL", "")
+if _frontend_url and _frontend_url != "*":
+    _cors_origins.append(_frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001", 
-        "http://localhost:5173",
-        os.getenv("FRONTEND_URL", "*"),
-        "https://frontend-snowy-chi-2d9q9syghe.vercel.app",
-        "https://*.vercel.app"
-    ],
+    allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

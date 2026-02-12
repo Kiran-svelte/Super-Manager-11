@@ -1,16 +1,16 @@
 """
-SUPER MANAGER - AI BRAIN v4 (ReAct Agent + Feedback + Memory)
-==============================================================
+SUPER MANAGER - AI BRAIN v5 (Adaptive Agent + Feedback + Memory)
+=================================================================
 General-purpose AI agent that can handle ANY request.
-Uses ReAct (Reasoning + Acting) pattern with Groq LLM.
+Uses Adaptive Agent pattern: dynamic code generation with primitives.
 
 Architecture:
-- ReactAgent: Think -> Act -> Observe loop
-- ToolRegistry: 12 pluggable tools
+- AdaptiveAgent: Think -> Generate Code -> Classify Risk -> Execute -> Observe loop
+- 6 Primitives: web_search, browse_page, scrape_data, generate_image, fill_form, run_python
+- Sandbox: Restricted code execution with risk classification
+- Strategy Store: Learns from successful task patterns
 - Session management: Conversation history + pending confirmations
 - Feedback system: Red/green user ratings that influence future responses
-- Memory: Per-user persistent notes and preferences
-- Reminders: In-session timed reminders
 - SSE streaming: Real-time progress events
 """
 
@@ -29,11 +29,8 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Import the ReAct agent and tools
-from .react_agent import ReactAgent, AgentEvent, PendingConfirmation
-from .tools import ToolRegistry
-from .tools.memory_tool import get_user_memory
-from .tools.reminder_tool import get_due_reminders
+# Import the Adaptive Agent
+from .adaptive_agent import AdaptiveAgent, AgentEvent
 
 
 # =============================================================================
@@ -56,14 +53,11 @@ CONFIRM_NO = {
 def _is_confirmation(text: str, keywords: set) -> bool:
     """Check if text contains any confirmation keyword"""
     lower = text.lower().strip()
-    # Exact match first
     if lower in keywords:
         return True
-    # Check if any multi-word keyword is contained
     for kw in keywords:
         if " " in kw and kw in lower:
             return True
-    # Check single-word keywords at word boundary
     words = set(lower.split())
     return bool(words & {kw for kw in keywords if " " not in kw})
 
@@ -91,7 +85,6 @@ class Session:
     user_data: Dict[str, Any] = field(default_factory=dict)
     pending_confirmation: Optional[Dict[str, Any]] = None
     feedback_history: List[Dict[str, Any]] = field(default_factory=list)
-    reminders: List[Dict[str, Any]] = field(default_factory=list)
 
 
 # =============================================================================
@@ -103,7 +96,8 @@ class Database:
     def __init__(self):
         self.sessions: Dict[str, Session] = {}
         self.users: Dict[str, Dict] = {}
-        self.feedback: Dict[str, List[Dict]] = {}  # user_id -> feedback events
+        self.feedback: Dict[str, List[Dict]] = {}
+        self.memory: Dict[str, Dict[str, str]] = {}  # user_id -> {key: value}
 
     def get_session(self, session_id: str) -> Session:
         if session_id not in self.sessions:
@@ -124,31 +118,36 @@ class Database:
     def get_feedback(self, user_id: str, limit: int = 5) -> List[Dict]:
         return self.feedback.get(user_id, [])[-limit:]
 
+    def get_memory(self, user_id: str) -> Dict[str, str]:
+        return self.memory.get(user_id, {})
+
+    def save_memory(self, user_id: str, key: str, value: str):
+        if user_id not in self.memory:
+            self.memory[user_id] = {}
+        self.memory[user_id][key] = value
+
 
 db = Database()
 
 
 # =============================================================================
-# AI BRAIN - ReAct Agent Wrapper
+# AI BRAIN - Adaptive Agent Wrapper
 # =============================================================================
 class AIBrain:
     """
-    General-purpose AI brain using the ReAct agent pattern.
-    Can handle ANY user request by dynamically choosing tools.
-    Now with feedback system, memory, and reminders.
+    General-purpose AI brain using the Adaptive Agent pattern.
+    Handles ANY user request by dynamically generating code with primitives.
+    Includes feedback system and memory.
     """
 
     def __init__(self):
-        self.tool_registry = ToolRegistry()
-        self.agent = ReactAgent(self.tool_registry)
+        self.agent = AdaptiveAgent()
 
     def _build_feedback_context(self, session: Session, user_id: str) -> str:
         """Build feedback context string for the system prompt"""
-        # Combine session + user-level feedback
         session_fb = session.feedback_history[-5:]
         user_fb = db.get_feedback(user_id, 5)
 
-        # Merge and deduplicate (prefer most recent)
         all_fb = session_fb + [f for f in user_fb if f not in session_fb]
         recent = all_fb[-5:]
 
@@ -175,7 +174,7 @@ class AIBrain:
 
     def _build_memory_context(self, user_id: str) -> str:
         """Build user memory context for the system prompt"""
-        memory = get_user_memory(user_id)
+        memory = db.get_memory(user_id)
         if not memory:
             return ""
 
@@ -183,11 +182,6 @@ class AIBrain:
         for key, value in memory.items():
             lines.append(f"- {key}: {value}")
         return "\n".join(lines)
-
-    def _check_reminders(self, session_id: str) -> List[str]:
-        """Check for due reminders and return their messages"""
-        due = get_due_reminders(session_id)
-        return [r["message"] for r in due]
 
     async def process(self, session_id: str, user_message: str, user_id: str = "default") -> Dict[str, Any]:
         """
@@ -201,9 +195,6 @@ class AIBrain:
         if session.pending_confirmation:
             return await self._handle_confirmation(session, user_message, user_id)
 
-        # Check for due reminders
-        due_reminders = self._check_reminders(session_id)
-
         # Build conversation history for agent (last 10 messages)
         history = self._build_history(session)
 
@@ -211,13 +202,6 @@ class AIBrain:
         feedback_context = self._build_feedback_context(session, user_id)
         memory_context = self._build_memory_context(user_id)
 
-        # Prepend reminders to user message if any are due
-        effective_message = user_message
-        if due_reminders:
-            reminder_text = "\n".join(f"[REMINDER: {r}]" for r in due_reminders)
-            effective_message = f"{reminder_text}\n\nUser message: {user_message}"
-
-        # Prepend memory context to feedback_context
         full_context = ""
         if memory_context:
             full_context = memory_context + "\n\n"
@@ -226,27 +210,22 @@ class AIBrain:
 
         # Run agent and collect all events
         final_answer = ""
-        ui_components = None
-        proof = None
         steps = []
         confirm_data = None
-        tools_used = []
+        ask_data = None
+        options = None
 
         async for event in self.agent.run(
-            effective_message, history, user_id, full_context,
+            user_message, history, user_id, full_context,
             session_id=session_id,
         ):
             steps.append(event.to_dict())
 
             if event.type == "answer":
                 final_answer = event.content
-            elif event.type == "tool_call":
-                tools_used.append(event.content)
-            elif event.type == "tool_result" and event.data:
-                if "ui_components" in event.data:
-                    ui_components = event.data["ui_components"]
-                if "proof" in event.data:
-                    proof = event.data["proof"]
+            elif event.type == "ask":
+                ask_data = event.data
+                final_answer = event.content
             elif event.type == "confirm_needed":
                 confirm_data = event.data
                 final_answer = event.content
@@ -255,31 +234,43 @@ class AIBrain:
         if final_answer:
             session.messages.append(Message(role=MessageType.AI, content=final_answer))
 
-        # If confirmation needed, store pending state
-        if confirm_data:
-            session.pending_confirmation = confirm_data
+        # If asking user to choose options
+        if ask_data:
+            session.pending_confirmation = {
+                "type": "ask",
+                "options": ask_data.get("options", []),
+                "scratchpad": ask_data.get("scratchpad", []),
+                "history": ask_data.get("history", []),
+                "context": ask_data.get("context", {}),
+            }
             return {
                 "message": final_answer,
-                "type": "task",
-                "status": "confirm",
+                "type": "ask",
+                "status": "choose",
+                "options": ask_data.get("options", []),
                 "session_id": session_id,
                 "steps": steps,
             }
 
-        # Include reminder notifications in response
-        result = {
+        # If confirmation needed for risky action
+        if confirm_data:
+            session.pending_confirmation = confirm_data
+            code_preview = confirm_data.get("code") if confirm_data.get("action_type") == "code" else None
+            return {
+                "message": final_answer,
+                "type": "task",
+                "status": "confirm",
+                "code_preview": code_preview,
+                "session_id": session_id,
+                "steps": steps,
+            }
+
+        return {
             "message": final_answer,
             "type": "answer",
             "session_id": session_id,
-            "ui_components": ui_components,
-            "proof": proof,
             "steps": steps,
         }
-
-        if due_reminders:
-            result["reminders"] = due_reminders
-
-        return result
 
     async def process_stream(self, session_id: str, user_message: str, user_id: str = "default"):
         """
@@ -295,25 +286,10 @@ class AIBrain:
                 yield event
             return
 
-        # Check for due reminders
-        due_reminders = self._check_reminders(session_id)
-        if due_reminders:
-            reminder_text = " | ".join(due_reminders)
-            yield AgentEvent(
-                type="tool_result",
-                content=f"Reminders due: {reminder_text}",
-                data={"reminders": due_reminders},
-            )
-
         # Build context
         history = self._build_history(session)
         feedback_context = self._build_feedback_context(session, user_id)
         memory_context = self._build_memory_context(user_id)
-
-        effective_message = user_message
-        if due_reminders:
-            reminder_text = "\n".join(f"[REMINDER: {r}]" for r in due_reminders)
-            effective_message = f"{reminder_text}\n\nUser message: {user_message}"
 
         full_context = ""
         if memory_context:
@@ -324,12 +300,21 @@ class AIBrain:
         final_answer = ""
 
         async for event in self.agent.run(
-            effective_message, history, user_id, full_context,
+            user_message, history, user_id, full_context,
             session_id=session_id,
         ):
             yield event
 
             if event.type == "answer":
+                final_answer = event.content
+            elif event.type == "ask":
+                session.pending_confirmation = {
+                    "type": "ask",
+                    "options": event.data.get("options", []),
+                    "scratchpad": event.data.get("scratchpad", []),
+                    "history": event.data.get("history", []),
+                    "context": event.data.get("context", {}),
+                }
                 final_answer = event.content
             elif event.type == "confirm_needed":
                 session.pending_confirmation = event.data
@@ -339,39 +324,125 @@ class AIBrain:
             session.messages.append(Message(role=MessageType.AI, content=final_answer))
 
     async def _handle_confirmation(self, session: Session, user_message: str, user_id: str) -> Dict[str, Any]:
-        """Handle a pending confirmation (user said yes/no)"""
+        """Handle a pending confirmation (user said yes/no or selected an option)"""
         pending = session.pending_confirmation
 
-        if _is_confirmation(user_message, CONFIRM_YES):
+        # Handle option selection from <ask>
+        if pending.get("type") == "ask":
             session.pending_confirmation = None
-
-            tool_name = pending.get("tool", "")
-            tool_params = pending.get("params", {})
+            # User's selection becomes the next message - run agent again with context
+            history = self._build_history(session)
             scratchpad = pending.get("scratchpad", [])
-            history = pending.get("history", self._build_history(session))
+            context = pending.get("context", {})
 
+            # Add the selection to scratchpad as context
+            scratchpad.append({
+                "role": "user",
+                "content": f"<user_selection>{user_message}</user_selection>",
+            })
+
+            # Continue the agent from where it left off
             final_answer = ""
-            ui_components = None
             steps = []
+            confirm_data = None
+            ask_data = None
 
-            async for event in self.agent.execute_confirmed_tool(
-                tool_name, tool_params, history, scratchpad, user_id
+            # Build context string
+            feedback_context = self._build_feedback_context(session, user_id)
+            memory_context = self._build_memory_context(user_id)
+            full_context = ""
+            if memory_context:
+                full_context = memory_context + "\n\n"
+            if feedback_context:
+                full_context += feedback_context
+
+            # Run agent with the selection
+            effective_message = f"User selected: {user_message}"
+            combined_history = history + scratchpad
+
+            async for event in self.agent.run(
+                effective_message, combined_history, user_id, full_context,
+                session_id=session.id,
             ):
                 steps.append(event.to_dict())
                 if event.type == "answer":
                     final_answer = event.content
-                elif event.type == "tool_result" and event.data:
-                    if "ui_components" in event.data:
-                        ui_components = event.data["ui_components"]
+                elif event.type == "ask":
+                    ask_data = event.data
+                    final_answer = event.content
+                elif event.type == "confirm_needed":
+                    confirm_data = event.data
+                    final_answer = event.content
 
-            session.messages.append(Message(role=MessageType.AI, content=final_answer))
+            if final_answer:
+                session.messages.append(Message(role=MessageType.AI, content=final_answer))
+
+            if ask_data:
+                session.pending_confirmation = {
+                    "type": "ask",
+                    "options": ask_data.get("options", []),
+                    "scratchpad": ask_data.get("scratchpad", []),
+                    "history": ask_data.get("history", []),
+                    "context": ask_data.get("context", {}),
+                }
+                return {
+                    "message": final_answer,
+                    "type": "ask",
+                    "status": "choose",
+                    "options": ask_data.get("options", []),
+                    "session_id": session.id,
+                    "steps": steps,
+                }
+
+            if confirm_data:
+                session.pending_confirmation = confirm_data
+                return {
+                    "message": final_answer,
+                    "type": "task",
+                    "status": "confirm",
+                    "code_preview": confirm_data.get("code"),
+                    "session_id": session.id,
+                    "steps": steps,
+                }
+
+            return {
+                "message": final_answer,
+                "type": "answer",
+                "session_id": session.id,
+                "steps": steps,
+            }
+
+        # Handle yes/no confirmation for risky actions
+        if _is_confirmation(user_message, CONFIRM_YES):
+            session.pending_confirmation = None
+
+            action_type = pending.get("action_type", "")
+            primitive_name = pending.get("primitive")
+            params = pending.get("params", {})
+            code = pending.get("code")
+            scratchpad = pending.get("scratchpad", [])
+            history = pending.get("history", self._build_history(session))
+            context = pending.get("context", {})
+
+            final_answer = ""
+            steps = []
+
+            async for event in self.agent.execute_confirmed_action(
+                action_type, primitive_name, params, code,
+                history, scratchpad, context, user_id,
+            ):
+                steps.append(event.to_dict())
+                if event.type == "answer":
+                    final_answer = event.content
+
+            if final_answer:
+                session.messages.append(Message(role=MessageType.AI, content=final_answer))
 
             return {
                 "message": final_answer,
                 "type": "task",
                 "status": "done",
                 "session_id": session.id,
-                "ui_components": ui_components,
                 "steps": steps,
             }
 
@@ -382,7 +453,7 @@ class AIBrain:
             return {"message": msg, "type": "cancelled", "session_id": session.id}
 
         else:
-            # User said something else while we were waiting for confirmation
+            # User said something else - treat as new message
             session.pending_confirmation = None
             return await self.process(session.id, user_message, user_id)
 
@@ -390,17 +461,69 @@ class AIBrain:
         """Streaming version of confirmation handling"""
         pending = session.pending_confirmation
 
+        # Handle option selection from <ask>
+        if pending.get("type") == "ask":
+            session.pending_confirmation = None
+            history = self._build_history(session)
+            scratchpad = pending.get("scratchpad", [])
+
+            scratchpad.append({
+                "role": "user",
+                "content": f"<user_selection>{user_message}</user_selection>",
+            })
+
+            feedback_context = self._build_feedback_context(session, user_id)
+            memory_context = self._build_memory_context(user_id)
+            full_context = ""
+            if memory_context:
+                full_context = memory_context + "\n\n"
+            if feedback_context:
+                full_context += feedback_context
+
+            effective_message = f"User selected: {user_message}"
+            combined_history = history + scratchpad
+            final_answer = ""
+
+            async for event in self.agent.run(
+                effective_message, combined_history, user_id, full_context,
+                session_id=session.id,
+            ):
+                yield event
+                if event.type == "answer":
+                    final_answer = event.content
+                elif event.type == "ask":
+                    session.pending_confirmation = {
+                        "type": "ask",
+                        "options": event.data.get("options", []),
+                        "scratchpad": event.data.get("scratchpad", []),
+                        "history": event.data.get("history", []),
+                        "context": event.data.get("context", {}),
+                    }
+                    final_answer = event.content
+                elif event.type == "confirm_needed":
+                    session.pending_confirmation = event.data
+                    final_answer = event.content
+
+            if final_answer:
+                session.messages.append(Message(role=MessageType.AI, content=final_answer))
+            return
+
+        # Handle yes/no confirmation
         if _is_confirmation(user_message, CONFIRM_YES):
             session.pending_confirmation = None
 
-            tool_name = pending.get("tool", "")
-            tool_params = pending.get("params", {})
+            action_type = pending.get("action_type", "")
+            primitive_name = pending.get("primitive")
+            params = pending.get("params", {})
+            code = pending.get("code")
             scratchpad = pending.get("scratchpad", [])
             history = pending.get("history", self._build_history(session))
+            context = pending.get("context", {})
 
             final_answer = ""
-            async for event in self.agent.execute_confirmed_tool(
-                tool_name, tool_params, history, scratchpad, user_id
+            async for event in self.agent.execute_confirmed_action(
+                action_type, primitive_name, params, code,
+                history, scratchpad, context, user_id,
             ):
                 yield event
                 if event.type == "answer":

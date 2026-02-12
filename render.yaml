@@ -3,13 +3,29 @@ services:
     name: super-manager-api
     runtime: docker
     dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
     envVars:
+      - key: PORT
+        value: "10000"
+      - key: APP_ENV
+        value: production
       - key: SUPABASE_URL
-        value: https://hpqmcdygbjdmvxfmvucf.supabase.co
+        sync: false
       - key: SUPABASE_KEY
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: ENCRYPTION_SECRET
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SMTP_EMAIL
         sync: false
-    healthCheckPath: /api/health
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

@@ -9,8 +9,24 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true
+      },
+      '/ws': {
+        target: 'ws://localhost:8000',
+        ws: true
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          icons: ['lucide-react']
+        }
       }
     }
   }
 })
-
