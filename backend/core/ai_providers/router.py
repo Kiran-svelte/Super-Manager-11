@@ -16,6 +16,8 @@ from .ollama_provider import OllamaProvider, get_ollama_provider
 from .openai_provider import OpenAIProvider, get_openai_provider
 from .groq_provider import GroqProvider, get_groq_provider
 from .zuki_provider import ZukiProvider, get_zuki_provider
+from .sambanova_provider import SambaNovaProvider, get_sambanova_provider
+from .gemini_provider import GeminiProvider, get_gemini_provider
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +33,14 @@ class RoutingStrategy(Enum):
 class AIRouter:
     """
     Intelligent AI router with automatic failover.
-    
+
     Priority order (COST_OPTIMIZED - default):
     1. Ollama (local, free, private)
     2. Groq (fast, free tier)
-    3. Zuki (free API)
-    4. OpenAI (paid, most capable)
+    3. Gemini (free, high quality)
+    4. SambaNova (free, DeepSeek/Llama)
+    5. Zuki (free API)
+    6. OpenAI (paid, most capable)
     """
     
     def __init__(self, strategy: RoutingStrategy = RoutingStrategy.COST_OPTIMIZED):
@@ -57,6 +61,8 @@ class AIRouter:
         self._providers = {
             "ollama": get_ollama_provider(),
             "groq": get_groq_provider(),
+            "gemini": get_gemini_provider(),
+            "sambanova": get_sambanova_provider(),
             "zuki": get_zuki_provider(),
             "openai": get_openai_provider()
         }
@@ -86,14 +92,14 @@ class AIRouter:
     def _get_provider_priority(self) -> List[str]:
         """Get provider priority based on strategy"""
         if self.strategy == RoutingStrategy.COST_OPTIMIZED:
-            return ["ollama", "groq", "zuki", "openai"]
+            return ["ollama", "groq", "gemini", "sambanova", "zuki", "openai"]
         elif self.strategy == RoutingStrategy.SPEED_OPTIMIZED:
             # Sort by average latency
             providers = list(self._providers.items())
             providers.sort(key=lambda x: x[1].avg_latency if x[1].avg_latency > 0 else float('inf'))
             return [p[0] for p in providers]
         elif self.strategy == RoutingStrategy.QUALITY_OPTIMIZED:
-            return ["openai", "groq", "zuki", "ollama"]
+            return ["openai", "gemini", "groq", "sambanova", "zuki", "ollama"]
         else:
             return list(self._providers.keys())
     
@@ -221,8 +227,8 @@ class AIRouter:
         if not self._initialized:
             await self.initialize()
         
-        # Embedding priority: Ollama > OpenAI > Zuki (Groq doesn't support)
-        embedding_priority = ["ollama", "openai", "zuki"]
+        # Embedding priority: Ollama > Gemini > OpenAI > Zuki
+        embedding_priority = ["ollama", "gemini", "openai", "zuki"]
         
         for provider_name in embedding_priority:
             provider = self._providers.get(provider_name)

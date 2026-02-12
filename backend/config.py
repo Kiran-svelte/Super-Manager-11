@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # ==========================================================================
     groq_api_key: Optional[str] = Field(default=None, description="Groq API key")
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key (fallback)")
+    sambanova_api_key: Optional[str] = Field(default=None, description="SambaNova API key (free)")
+    gemini_api_key: Optional[str] = Field(default=None, description="Gemini API key (free)")
     ai_model: str = Field(default="llama-3.3-70b-versatile", description="Default AI model")
     ai_temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="AI temperature")
     ai_max_tokens: int = Field(default=2048, ge=1, description="Max tokens for AI response")
