@@ -293,7 +293,7 @@ def register_fallback_tool():
             risk_level="safe",  # It's just a pause, not an action
             source="fallback",
             handler=human_fallback_tool,
-        ))
+        )
         
         registry.register(tool)
         logger.info("Registered human_fallback tool")

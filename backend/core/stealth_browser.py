@@ -43,7 +43,7 @@ class BrowserConfig:
     
     def __post_init__(self):
         if self.viewport is None:
-            self.viewport = {"width": 1920, "height": 1080"}
+            self.viewport = {"width": 1920, "height": 1080}
 
 
 class StealthBrowser:
