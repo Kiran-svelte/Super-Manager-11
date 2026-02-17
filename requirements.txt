@@ -36,3 +36,15 @@ websockets>=12.0
 
 # ===== Monitoring =====
 psutil>=5.9.0
+
+# ===== v6 New Capabilities =====
+# NOTE: These are optional dependencies for enhanced features
+# The system will gracefully degrade if not installed
+
+# MCP (Model Context Protocol) - For MCP server integration
+# mcp[cli]>=1.0.0  # Uncomment when ready to use MCP
+
+# Stealth Browser - For anti-detection browser automation
+# camoufox[geoip]>=0.3.0  # Best anti-detect (optional)
+# playwright-stealth>=1.0.0  # Good stealth plugin (optional)
+# Note: playwright>=1.40.0 is recommended for stealth features
