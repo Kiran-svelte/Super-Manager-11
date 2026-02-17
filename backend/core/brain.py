@@ -606,3 +606,51 @@ def save_user_data(identifier: str, data: Dict):
 def get_user_data(identifier: str) -> Optional[Dict]:
     """Get user data"""
     return db.get_user(identifier)
+
+
+# =============================================================================
+# v6 TOOL REGISTRATION - Initialize new capabilities on module load
+# =============================================================================
+def _initialize_v6_tools():
+    """
+    Initialize v6 tools and register them with ToolRegistry.
+    Called once when the module is loaded.
+    """
+    try:
+        # Register payment tools
+        from .payment_links import register_payment_tools
+        register_payment_tools()
+        logger.info("✓ Payment tools registered")
+    except Exception as e:
+        logger.warning(f"Could not register payment tools: {e}")
+    
+    try:
+        # Register stealth browser tools
+        from .stealth_browser import register_stealth_tools
+        register_stealth_tools()
+        logger.info("✓ Stealth browser tools registered")
+    except Exception as e:
+        logger.warning(f"Could not register stealth tools: {e}")
+    
+    try:
+        # Register human fallback tool
+        from .human_fallback import register_fallback_tool
+        register_fallback_tool()
+        logger.info("✓ Human fallback tool registered")
+    except Exception as e:
+        logger.warning(f"Could not register fallback tool: {e}")
+    
+    try:
+        # Load saved workflows and register as tools
+        from .teaching_mode import get_teaching_mode
+        teaching_mode = get_teaching_mode()
+        # Workflows are auto-registered when loaded
+        logger.info(f"✓ Teaching mode initialized with {len(teaching_mode.workflows)} workflows")
+    except Exception as e:
+        logger.warning(f"Could not initialize teaching mode: {e}")
+    
+    logger.info("Super Manager v6 tools initialized")
+
+
+# Initialize v6 tools on module load
+_initialize_v6_tools()
