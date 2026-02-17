@@ -26,6 +26,7 @@ import httpx
 from .sandbox import SandboxExecutor, RiskClassifier, ExecutionResult
 from .strategy_store import StrategyStore
 from .primitives import get_primitives_prompt
+from .tool_registry import get_tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 @dataclass
 class AgentEvent:
     """Event yielded by the agent during execution"""
-    type: str  # thinking, action, code_exec, action_result, answer, ask, confirm_needed, step_progress, error
+    type: str  # thinking, action, code_exec, action_result, answer, ask, confirm_needed, step_progress, error, human_fallback
     content: str
     data: Dict[str, Any] = field(default_factory=dict)
 
@@ -72,7 +73,13 @@ class AdaptiveAgent:
 
     def _build_system_prompt(self, feedback_context: str = "", strategy_hint: str = "") -> str:
         """Build the system prompt with primitives documentation"""
-        primitives_section = get_primitives_prompt()
+        # v6: Use ToolRegistry for unified tool documentation
+        try:
+            registry = get_tool_registry()
+            primitives_section = registry.get_prompt_section()
+        except Exception as e:
+            logger.warning(f"Failed to get ToolRegistry prompt, falling back to primitives: {e}")
+            primitives_section = get_primitives_prompt()
 
         feedback_section = ""
         if feedback_context:
