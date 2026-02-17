@@ -212,7 +212,7 @@ class StealthBrowser:
             
             # Check for generic CAPTCHA indicators in page text
             page_text = await self.page.content()
-            captcha_keywords = ["captcha", "bot check", "verify you're human", "prove you're not a robot"]
+            captcha_keywords = ["captcha", "bot check", "verify you are human", "prove you are not a robot"]
             page_text_lower = page_text.lower()
             
             for keyword in captcha_keywords:
