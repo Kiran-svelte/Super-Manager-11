@@ -1,12 +1,12 @@
 """
-SUPER MANAGER - AI BRAIN v5 (Adaptive Agent + Feedback + Memory)
-=================================================================
+SUPER MANAGER - AI BRAIN v6 (Adaptive Agent + ToolRegistry + MCP + Stealth)
+=============================================================================
 General-purpose AI agent that can handle ANY request.
-Uses Adaptive Agent pattern: dynamic code generation with primitives.
+Uses Adaptive Agent pattern: dynamic code generation with tools.
 
 Architecture:
+- ToolRegistry: Unified tool layer (primitives, MCP, stealth, payment, fallback, workflows)
 - AdaptiveAgent: Think -> Generate Code -> Classify Risk -> Execute -> Observe loop
-- 6 Primitives: web_search, browse_page, scrape_data, generate_image, fill_form, run_python
 - Sandbox: Restricted code execution with risk classification
 - Strategy Store: Learns from successful task patterns
 - Session management: Conversation history + pending confirmations
@@ -31,6 +31,14 @@ logger = logging.getLogger(__name__)
 
 # Import the Adaptive Agent
 from .adaptive_agent import AdaptiveAgent, AgentEvent
+
+# Import tool registration functions (register tools on startup)
+from .tool_registry import get_tool_registry
+from .payment_links import register_payment_tools
+from .stealth_browser import register_stealth_tools
+from .human_fallback import register_fallback_tools
+from .mcp_client import get_mcp_client
+from .teaching_mode import get_teaching_mode
 
 
 # =============================================================================

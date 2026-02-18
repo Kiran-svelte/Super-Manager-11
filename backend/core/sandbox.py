@@ -24,6 +24,20 @@ from .primitives import (
 
 logger = logging.getLogger(__name__)
 
+# Lazy import to avoid circular dependency
+_tool_registry = None
+
+def _get_registry():
+    """Get tool registry lazily to avoid circular imports"""
+    global _tool_registry
+    if _tool_registry is None:
+        try:
+            from .tool_registry import get_tool_registry
+            _tool_registry = get_tool_registry()
+        except ImportError:
+            _tool_registry = None
+    return _tool_registry
+
 
 @dataclass
 class ExecutionResult:
@@ -108,15 +122,29 @@ class RiskClassifier:
                 "blocked_patterns": blocked,
             }
 
-        # Detect which primitives are used
+        # Detect which primitives/tools are used
         primitives_used = set()
-        for prim_name in list(self.SAFE_PRIMITIVES) + list(self.RISKY_PRIMITIVES):
+        all_known_tools = set(self.SAFE_PRIMITIVES) | set(self.RISKY_PRIMITIVES)
+
+        # Also check dynamically registered tools from ToolRegistry
+        registry = _get_registry()
+        if registry:
+            all_known_tools.update(registry.get_tool_names())
+
+        for tool_name in all_known_tools:
             # Match function calls like: await web_search(...) or web_search(...)
-            if re.search(rf'\b{prim_name}\s*\(', code):
-                primitives_used.add(prim_name)
+            if re.search(rf'\b{re.escape(tool_name)}\s*\(', code):
+                primitives_used.add(tool_name)
 
         # Determine risk level
         risky_used = primitives_used & self.RISKY_PRIMITIVES
+
+        # Also check registry for risky tools
+        if registry:
+            for tool_name in primitives_used:
+                tool = registry.get(tool_name)
+                if tool and tool.risk_level == "risky":
+                    risky_used.add(tool_name)
         if risky_used:
             return {
                 "risk": "risky",
@@ -134,10 +162,24 @@ class RiskClassifier:
 
     def validate_action(self, primitive_name: str) -> dict:
         """
-        Classify a single primitive action call.
+        Classify a single primitive/tool action call.
+        Checks ToolRegistry first, falls back to hardcoded sets.
 
         Returns same format as classify().
         """
+        # Check ToolRegistry first (supports dynamic tools: MCP, stealth, payment, etc.)
+        registry = _get_registry()
+        if registry:
+            tool = registry.get(primitive_name)
+            if tool:
+                return {
+                    "risk": tool.risk_level,
+                    "reason": f"{primitive_name} ({tool.source}) is {tool.risk_level}",
+                    "primitives_used": [primitive_name],
+                    "blocked_patterns": [],
+                }
+
+        # Fallback to hardcoded sets
         if primitive_name in self.SAFE_PRIMITIVES:
             return {
                 "risk": "safe",
@@ -155,7 +197,7 @@ class RiskClassifier:
         else:
             return {
                 "risk": "blocked",
-                "reason": f"Unknown primitive: {primitive_name}",
+                "reason": f"Unknown tool: {primitive_name}",
                 "primitives_used": [],
                 "blocked_patterns": [primitive_name],
             }
@@ -182,14 +224,57 @@ class SandboxExecutor:
 
     async def execute_action(self, primitive_name: str, params: Dict[str, Any], context: Dict[str, Any] = None) -> ExecutionResult:
         """
-        Execute a single primitive action call.
+        Execute a single tool/primitive action call.
         Used for simple <action> tags.
+        Checks ToolRegistry first, falls back to PRIMITIVES dict.
         """
+        # Try ToolRegistry first (supports MCP, stealth, payment, etc.)
+        registry = _get_registry()
+        if registry:
+            tool = registry.get(primitive_name)
+            if tool and tool.handler:
+                try:
+                    result = await asyncio.wait_for(
+                        tool.handler(**params),
+                        timeout=self.timeout,
+                    )
+                    if isinstance(result, PrimitiveResult):
+                        return ExecutionResult(
+                            success=result.success,
+                            output=result.output,
+                            data=result.data,
+                            error=result.error,
+                            primitives_used=[primitive_name],
+                        )
+                    return ExecutionResult(
+                        success=True,
+                        output=str(result),
+                        primitives_used=[primitive_name],
+                    )
+                except asyncio.TimeoutError:
+                    return ExecutionResult(
+                        success=False,
+                        output=f"Tool {primitive_name} timed out after {self.timeout}s",
+                        error="timeout",
+                        primitives_used=[primitive_name],
+                    )
+                except Exception as e:
+                    return ExecutionResult(
+                        success=False,
+                        output=f"Tool {primitive_name} failed: {str(e)}",
+                        error=str(e),
+                        primitives_used=[primitive_name],
+                    )
+
+        # Fallback to hardcoded PRIMITIVES dict
         if primitive_name not in PRIMITIVES:
+            available = list(PRIMITIVES.keys())
+            if registry:
+                available = registry.get_tool_names()
             return ExecutionResult(
                 success=False,
-                output=f"Unknown primitive: {primitive_name}. Available: {', '.join(PRIMITIVES.keys())}",
-                error="unknown_primitive",
+                output=f"Unknown tool: {primitive_name}. Available: {', '.join(available)}",
+                error="unknown_tool",
             )
 
         prim_info = PRIMITIVES[primitive_name]
@@ -212,14 +297,14 @@ class SandboxExecutor:
         except asyncio.TimeoutError:
             return ExecutionResult(
                 success=False,
-                output=f"Primitive {primitive_name} timed out after {self.timeout}s",
+                output=f"Tool {primitive_name} timed out after {self.timeout}s",
                 error="timeout",
                 primitives_used=[primitive_name],
             )
         except Exception as e:
             return ExecutionResult(
                 success=False,
-                output=f"Primitive {primitive_name} failed: {str(e)}",
+                output=f"Tool {primitive_name} failed: {str(e)}",
                 error=str(e),
                 primitives_used=[primitive_name],
             )
@@ -283,7 +368,7 @@ class SandboxExecutor:
             "math": math,
             "datetime": datetime,
             "urlparse": urlparse,
-            # Primitives (the only way to interact with the outside world)
+            # Legacy primitives (always available)
             "web_search": web_search,
             "browse_page": browse_page,
             "scrape_data": scrape_data,
@@ -293,6 +378,13 @@ class SandboxExecutor:
             # Context from previous steps
             "context": context,
         }
+
+        # Inject all registered tools from ToolRegistry (MCP, stealth, payment, etc.)
+        registry = _get_registry()
+        if registry:
+            for tool in registry.list_tools():
+                if tool.handler and tool.name not in sandbox_globals:
+                    sandbox_globals[tool.name] = tool.handler
 
         # Step 3: Wrap code in an async function
         # Indent each line of the user code

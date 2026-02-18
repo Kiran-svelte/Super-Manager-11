@@ -25,7 +25,7 @@ import httpx
 
 from .sandbox import SandboxExecutor, RiskClassifier, ExecutionResult
 from .strategy_store import StrategyStore
-from .primitives import get_primitives_prompt
+from .tool_registry import get_tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +71,9 @@ class AdaptiveAgent:
         self.groq_key = os.getenv("GROQ_API_KEY", "")
 
     def _build_system_prompt(self, feedback_context: str = "", strategy_hint: str = "") -> str:
-        """Build the system prompt with primitives documentation"""
-        primitives_section = get_primitives_prompt()
+        """Build the system prompt with dynamic tools documentation"""
+        registry = get_tool_registry()
+        primitives_section = registry.get_prompt_section()
 
         feedback_section = ""
         if feedback_context:
@@ -86,7 +87,7 @@ Use this feedback to improve your responses. Avoid patterns that got negative fe
         if strategy_hint:
             strategy_section = f"\n{strategy_hint}\n"
 
-        return f"""You are Super Manager, an adaptive AI agent that can handle ANY task. You solve problems by writing Python code using primitives - small building blocks that let you search the web, browse pages, scrape data, generate images, fill forms, and more.
+        return f"""You are Super Manager, an adaptive AI agent that can handle ANY task. You solve problems by writing Python code using tools - building blocks that let you search the web, browse pages, scrape data, generate images, fill forms, generate payment links, and more. New tools may be dynamically discovered via MCP servers.
 
 {primitives_section}
 
