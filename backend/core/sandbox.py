@@ -5,8 +5,10 @@ Executes dynamically generated code in a restricted environment.
 Only primitive functions are available - no file system, no network
 access except through primitives.
 
+v6 UPDATE: Now consults ToolRegistry for dynamically registered tools.
+
 Components:
-- RiskClassifier: Deterministic risk classification
+- RiskClassifier: Deterministic risk classification (now with ToolRegistry)
 - SandboxExecutor: Restricted code execution with timeout
 """
 
@@ -23,6 +25,18 @@ from .primitives import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# TOOL REGISTRY IMPORT (v6)
+# =============================================================================
+# Import ToolRegistry, but handle gracefully if it doesn't exist yet
+try:
+    from .tool_registry import get_tool_registry
+    _TOOL_REGISTRY_AVAILABLE = True
+except ImportError:
+    _TOOL_REGISTRY_AVAILABLE = False
+    logger.warning("ToolRegistry not available - using legacy primitives only")
 
 
 @dataclass
@@ -43,6 +57,8 @@ class RiskClassifier:
     """
     Deterministic risk classification based on code content.
     Does NOT use LLM - purely static analysis.
+    
+    v6 UPDATE: Now consults ToolRegistry for dynamically registered tools.
     """
 
     SAFE_PRIMITIVES = {"web_search", "browse_page", "scrape_data", "generate_image"}
@@ -85,6 +101,8 @@ class RiskClassifier:
     def classify(self, code: str) -> dict:
         """
         Classify code risk level.
+        
+        v6 UPDATE: Now also checks ToolRegistry for dynamically registered tools.
 
         Returns:
             {
@@ -108,15 +126,48 @@ class RiskClassifier:
                 "blocked_patterns": blocked,
             }
 
-        # Detect which primitives are used
+        # Detect which primitives/tools are used
         primitives_used = set()
+        
+        # Check core primitives
         for prim_name in list(self.SAFE_PRIMITIVES) + list(self.RISKY_PRIMITIVES):
             # Match function calls like: await web_search(...) or web_search(...)
             if re.search(rf'\b{prim_name}\s*\(', code):
                 primitives_used.add(prim_name)
+        
+        # v6: Also check ToolRegistry for dynamically registered tools
+        if _TOOL_REGISTRY_AVAILABLE:
+            try:
+                registry = get_tool_registry()
+                all_tools = registry.list_tools()
+                for tool in all_tools:
+                    if re.search(rf'\b{tool.name}\s*\(', code):
+                        primitives_used.add(tool.name)
+            except Exception as e:
+                logger.warning(f"Failed to check ToolRegistry in classify: {e}")
 
         # Determine risk level
+        # First check core risky primitives
         risky_used = primitives_used & self.RISKY_PRIMITIVES
+        
+        # v6: Also check ToolRegistry for risky tools
+        if _TOOL_REGISTRY_AVAILABLE and not risky_used:
+            try:
+                registry = get_tool_registry()
+                for tool_name in primitives_used:
+                    tool = registry.get(tool_name)
+                    if tool and tool.risk_level == "risky":
+                        risky_used.add(tool_name)
+                    elif tool and tool.risk_level == "blocked":
+                        return {
+                            "risk": "blocked",
+                            "reason": f"Code uses blocked tool: {tool_name}",
+                            "primitives_used": list(primitives_used),
+                            "blocked_patterns": [tool_name],
+                        }
+            except Exception as e:
+                logger.warning(f"Failed to check ToolRegistry risk levels: {e}")
+        
         if risky_used:
             return {
                 "risk": "risky",
@@ -135,9 +186,12 @@ class RiskClassifier:
     def validate_action(self, primitive_name: str) -> dict:
         """
         Classify a single primitive action call.
+        
+        v6 UPDATE: Now also checks ToolRegistry for dynamically registered tools.
 
         Returns same format as classify().
         """
+        # First check core primitives
         if primitive_name in self.SAFE_PRIMITIVES:
             return {
                 "risk": "safe",
@@ -152,13 +206,29 @@ class RiskClassifier:
                 "primitives_used": [primitive_name],
                 "blocked_patterns": [],
             }
-        else:
-            return {
-                "risk": "blocked",
-                "reason": f"Unknown primitive: {primitive_name}",
-                "primitives_used": [],
-                "blocked_patterns": [primitive_name],
-            }
+        
+        # v6: Check ToolRegistry for dynamically registered tools
+        if _TOOL_REGISTRY_AVAILABLE:
+            try:
+                registry = get_tool_registry()
+                tool = registry.get(primitive_name)
+                if tool:
+                    return {
+                        "risk": tool.risk_level,
+                        "reason": f"{primitive_name} from {tool.source} is {tool.risk_level}",
+                        "primitives_used": [primitive_name],
+                        "blocked_patterns": [] if tool.risk_level != "blocked" else [primitive_name],
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to check ToolRegistry in validate_action: {e}")
+        
+        # Unknown primitive
+        return {
+            "risk": "blocked",
+            "reason": f"Unknown primitive: {primitive_name}",
+            "primitives_used": [],
+            "blocked_patterns": [primitive_name],
+        }
 
 
 # =============================================================================
@@ -293,6 +363,17 @@ class SandboxExecutor:
             # Context from previous steps
             "context": context,
         }
+        
+        # v6: Add tools from ToolRegistry to sandbox globals
+        if _TOOL_REGISTRY_AVAILABLE:
+            try:
+                registry = get_tool_registry()
+                for tool in registry.list_tools():
+                    # Add tool handler to globals so generated code can call it
+                    if tool.name not in sandbox_globals:
+                        sandbox_globals[tool.name] = tool.handler
+            except Exception as e:
+                logger.warning(f"Failed to add ToolRegistry tools to sandbox: {e}")
 
         # Step 3: Wrap code in an async function
         # Indent each line of the user code
