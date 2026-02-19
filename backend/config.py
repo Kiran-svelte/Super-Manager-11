@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     smtp_email: Optional[str] = Field(default=None, description="SMTP email address")
     smtp_password: Optional[str] = Field(default=None, description="SMTP password")
     smtp_use_tls: bool = Field(default=True, description="Use TLS for SMTP")
+    brevo_api_key: Optional[str] = Field(default=None, description="Brevo transactional email API key")
+    brevo_sender_email: Optional[str] = Field(default=None, description="Verified sender email in Brevo")
     
     # ==========================================================================
     # Telegram Settings

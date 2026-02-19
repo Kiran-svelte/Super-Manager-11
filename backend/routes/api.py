@@ -30,6 +30,7 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any, List
+import os
 import uuid
 import time
 import json
@@ -37,6 +38,7 @@ import logging
 
 # Primary brain - brain.py (ReAct agent with streaming)
 from ..core.brain import chat, get_history, save_user_data, get_user_data, brain
+from ..core.brevo_email import send_email_via_brevo
 
 # Optional: unified brain for capabilities endpoint
 try:
@@ -457,3 +459,51 @@ async def submit_feedback(request: FeedbackRequest):
             status_code=500,
             detail={"error": "Failed to record feedback.", "code": "feedback_error"}
         )
+
+
+# =============================================================================
+# Email Test Endpoint
+# =============================================================================
+
+class TestEmailRequest(BaseModel):
+    to: str = Field(..., description="Recipient email address")
+    subject: str = Field(default="Super Manager - Test Email", description="Email subject")
+
+
+@router.post("/api/test-email", tags=["email"])
+async def test_email(request: TestEmailRequest):
+    """
+    Send a test email via Brevo to verify the email integration is working.
+    Requires BREVO_API_KEY to be configured.
+    """
+    brevo_configured = bool(os.getenv("BREVO_API_KEY", ""))
+
+    if not brevo_configured:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_configured",
+                "message": "BREVO_API_KEY is not set. Add it as an environment variable to enable email sending.",
+            },
+        )
+
+    html_content = """
+<html>
+<body style="font-family:Arial,sans-serif;padding:20px;">
+  <h2 style="color:#4A90E2;">Super Manager – Email Test</h2>
+  <p>This is a test email confirming that the Brevo email integration is working correctly.</p>
+  <p style="color:#666;">Sent by Super Manager AI</p>
+</body>
+</html>
+"""
+    result = await send_email_via_brevo(
+        to_email=request.to,
+        subject=request.subject,
+        html_content=html_content,
+        text_content="Super Manager email test – Brevo integration is working correctly.",
+    )
+
+    if result["success"]:
+        return {"status": "sent", "message": result["message"], "to": request.to}
+
+    raise HTTPException(status_code=503, detail={"status": "failed", "message": result["message"]})
