@@ -1,6 +1,6 @@
 """
-Real Email Plugin with SMTP Integration
-Sends actual emails using SMTP (Gmail)
+Real Email Plugin with Brevo API + SMTP fallback
+Sends actual emails using Brevo transactional API (primary) or SMTP (fallback).
 """
 from typing import Dict, Any, List
 import smtplib
@@ -10,17 +10,21 @@ import os
 import asyncio
 
 from .plugins import BasePlugin
+from .brevo_email import send_email_via_brevo
 
 class RealEmailPlugin(BasePlugin):
     """Real email integration plugin using SMTP"""
     
     def __init__(self):
-        super().__init__("email", "Email operations with real SMTP sending")
+        super().__init__("email", "Email operations via Brevo API or SMTP fallback")
         self.sent_emails = []
-        
-        # SMTP Configuration (using Gmail)
-        self.smtp_server = "smtp.gmail.com"
-        self.smtp_port = 587
+
+        # Brevo API (primary)
+        self.brevo_api_key = os.getenv("BREVO_API_KEY", "")
+
+        # SMTP Configuration (fallback)
+        self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
         self.sender_email = os.getenv("SMTP_EMAIL", "supermanager.ai@gmail.com")
         self.sender_password = os.getenv("SMTP_PASSWORD", "")
         
@@ -28,10 +32,7 @@ class RealEmailPlugin(BasePlugin):
         """Execute email action"""
         action = step.get("action", "").lower()
         parameters = step.get("parameters", {})
-        
-        with open("debug_log.txt", "a", encoding="utf-8") as f:
-            f.write(f"[EMAIL_PLUGIN] Action: {action}, Params: {parameters}\n")
-        
+
         if "send" in action or "invite" in action:
             return await self._send_email(parameters)
         elif "read" in action or "check" in action:
@@ -47,117 +48,96 @@ class RealEmailPlugin(BasePlugin):
             }
     
     async def _send_email(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        """Send actual email via SMTP"""
+        """Send email – tries Brevo API first, falls back to SMTP."""
         try:
             to_email = parameters.get("to", "")
             subject = parameters.get("subject", "Meeting Invitation")
             body = parameters.get("body", "")
             meeting_link = parameters.get("meeting_link", "")
-            
+
             if not to_email:
-                return {
-                    "status": "failed",
-                    "error": "No recipient email provided"
-                }
-            
-            # Create email message
+                return {"status": "failed", "error": "No recipient email provided"}
+
+            if not body:
+                body = self._generate_meeting_email_body(parameters, meeting_link)
+            html_body = self._generate_html_email(parameters, meeting_link)
+
+            # ── Brevo API (primary) ────────────────────────────────────────
+            if self.brevo_api_key:
+                result = await send_email_via_brevo(
+                    to_email=to_email,
+                    subject=subject,
+                    html_content=html_body,
+                    text_content=body,
+                )
+                if result["success"]:
+                    email_record = {
+                        "to": to_email,
+                        "subject": subject,
+                        "body": body,
+                        "meeting_link": meeting_link,
+                        "sent_at": "now",
+                        "status": "sent via Brevo",
+                    }
+                    self.sent_emails.append(email_record)
+                    return {
+                        "status": "completed",
+                        "result": f"Email sent to {to_email} via Brevo",
+                        "email": email_record,
+                    }
+                # Brevo failed – fall through to SMTP
+
+            # ── SMTP fallback ──────────────────────────────────────────────
             message = MIMEMultipart("alternative")
             message["Subject"] = subject
             message["From"] = self.sender_email
             message["To"] = to_email
-            
-            # Create email body
-            if not body:
-                body = self._generate_meeting_email_body(parameters, meeting_link)
-            
-            # Create HTML and plain text versions
-            text_part = MIMEText(body, "plain")
-            html_part = MIMEText(self._generate_html_email(parameters, meeting_link), "html")
-            
-            message.attach(text_part)
-            message.attach(html_part)
-            
-            # Send email
+            message.attach(MIMEText(body, "plain"))
+            message.attach(MIMEText(html_body, "html"))
+
             try:
-                # Try to send via SMTP
+                if not self.sender_password:
+                    raise RuntimeError("SMTP_PASSWORD not configured")
+
                 with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                     server.starttls()
-                    
-                    # If no password, simulate sending
-                    if not self.sender_password:
-                        with open("debug_log.txt", "a", encoding="utf-8") as f:
-                            f.write(f"[EMAIL_PLUGIN] SMTP credentials not configured. Simulating send to {to_email}\n")
-                        
-                        # Save to sent emails
-                        email_record = {
-                            "to": to_email,
-                            "subject": subject,
-                            "body": body,
-                            "meeting_link": meeting_link,
-                            "sent_at": "simulated",
-                            "status": "simulated - SMTP not configured"
-                        }
-                        self.sent_emails.append(email_record)
-                        
-                        return {
-                            "status": "completed",
-                            "result": f"Email SIMULATED to {to_email} (SMTP not configured)",
-                            "email": email_record,
-                            "note": "To enable real email sending, set SMTP_EMAIL and SMTP_PASSWORD environment variables"
-                        }
-                    
                     server.login(self.sender_email, self.sender_password)
                     server.sendmail(self.sender_email, to_email, message.as_string())
-                
-                # Save to sent emails
+
                 email_record = {
                     "to": to_email,
                     "subject": subject,
                     "body": body,
                     "meeting_link": meeting_link,
                     "sent_at": "now",
-                    "status": "sent"
+                    "status": "sent via SMTP",
                 }
                 self.sent_emails.append(email_record)
-                
-                with open("debug_log.txt", "a", encoding="utf-8") as f:
-                    f.write(f"[EMAIL_PLUGIN] Successfully sent email to {to_email}\n")
-                
                 return {
                     "status": "completed",
-                    "result": f"Email sent to {to_email}",
-                    "email": email_record
+                    "result": f"Email sent to {to_email} via SMTP",
+                    "email": email_record,
                 }
-                
+
             except Exception as smtp_error:
-                with open("debug_log.txt", "a", encoding="utf-8") as f:
-                    f.write(f"[EMAIL_PLUGIN] SMTP Error: {smtp_error}\n")
-                
-                # Fallback to simulation
                 email_record = {
                     "to": to_email,
                     "subject": subject,
                     "body": body,
                     "meeting_link": meeting_link,
                     "sent_at": "simulated",
-                    "status": f"simulated - SMTP error: {str(smtp_error)}"
+                    "status": f"simulated – configure BREVO_API_KEY or SMTP credentials",
                 }
                 self.sent_emails.append(email_record)
-                
                 return {
                     "status": "completed",
-                    "result": f"Email SIMULATED to {to_email} (SMTP error: {str(smtp_error)})",
-                    "email": email_record
+                    "result": f"Email SIMULATED to {to_email} (no transport configured)",
+                    "email": email_record,
+                    "note": "Set BREVO_API_KEY (or SMTP_EMAIL + SMTP_PASSWORD) to enable real sending",
                 }
-        
+
         except Exception as e:
-            with open("debug_log.txt", "a", encoding="utf-8") as f:
-                f.write(f"[EMAIL_PLUGIN] Error: {e}\n")
-            
-            return {
-                "status": "failed",
-                "error": f"Failed to send email: {str(e)}"
-            }
+            return {"status": "failed", "error": f"Failed to send email: {str(e)}"}
     
     def _generate_meeting_email_body(self, parameters: Dict[str, Any], meeting_link: str) -> str:
         """Generate meeting invitation email body"""
