@@ -15,11 +15,29 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
+      - key: ENCRYPTION_SECRET
+        generateValue: true
+      # ===== AI Providers (ADD YOUR KEY) =====
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: "gpt-4o-mini"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: "openai/gpt-3.5-turbo"
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: SAMBANOVA_API_KEY
+        sync: false
+      # ===== Zoom (optional) =====
+      - key: ZOOM_CLIENT_ID
+        sync: false
+      - key: ZOOM_CLIENT_SECRET
+        sync: false
+      - key: ZOOM_ACCOUNT_ID
         sync: false
       - key: SECRET_KEY
         generateValue: true

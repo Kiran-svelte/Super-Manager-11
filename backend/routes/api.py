@@ -126,6 +126,7 @@ class FeedbackRequest(BaseModel):
     rating: str = Field(..., pattern=r"^(positive|negative)$")
     comment: Optional[str] = Field(None, max_length=500)
     answer_preview: Optional[str] = Field(None, max_length=300)
+    task_type: Optional[str] = Field(None, max_length=100)  # For learning loop
 
 
 # =============================================================================
@@ -197,11 +198,24 @@ async def chat_endpoint(
         # Use brain.py - has full task flow (plan -> collect info -> confirm -> execute)
         # brain.py now delegates execution to engine.py for proof generation
         result = await chat(session_id, request.message, user_id)
+
+        raw_message = result.get("message")
+        if raw_message is None:
+            raw_message = result.get("response") or result.get("content") or ""
+        message_text = str(raw_message) if raw_message is not None else ""
+
+        if not message_text.strip():
+            # Never return an empty assistant message to the UI.
+            message_text = "I produced an empty response due to an internal issue. Please try again."
+            if result.get("status") in (None, "", "done", "success"):
+                result["status"] = "error"
+            if not result.get("type"):
+                result["type"] = "answer"
         
         response_time = (time.time() - start_time) * 1000
         
         response = ChatResponse(
-            message=result.get("message", ""),
+            message=message_text,
             type=result.get("type", "answer"),
             status=result.get("status"),
             session_id=session_id,
@@ -373,6 +387,7 @@ async def button_action_endpoint(
             proof=result.get("proof"),
             ui_components=result.get("ui_components"),
             task_id=result.get("task_id"),
+            steps=result.get("steps"),
             response_time_ms=round(response_time, 2)
         )
         
@@ -438,7 +453,7 @@ async def get_capabilities():
 async def submit_feedback(request: FeedbackRequest):
     """
     Submit user feedback (positive/negative) for an AI response.
-    This feedback influences future AI behavior.
+    This feedback influences future AI behavior through the Learning Loop.
     """
     try:
         user_id = request.user_id or "default"
@@ -449,6 +464,7 @@ async def submit_feedback(request: FeedbackRequest):
             rating=request.rating,
             comment=request.comment,
             answer_preview=request.answer_preview or "",
+            task_type=request.task_type,  # For learning loop
         )
         return result
     except Exception as e:
@@ -457,3 +473,20 @@ async def submit_feedback(request: FeedbackRequest):
             status_code=500,
             detail={"error": "Failed to record feedback.", "code": "feedback_error"}
         )
+
+
+@router.get("/api/learning/stats")
+async def get_learning_stats():
+    """
+    Get learning loop statistics - strategy confidence, success rates, etc.
+    """
+    try:
+        from backend.core.strategy_store import StrategyStore
+        strategies = StrategyStore()
+        return {
+            "status": "ok",
+            "stats": strategies.get_statistics()
+        }
+    except Exception as e:
+        logger.error(f"Learning stats error: {str(e)}", exc_info=True)
+        return {"status": "error", "stats": {}}

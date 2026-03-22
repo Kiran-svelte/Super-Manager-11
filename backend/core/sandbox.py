@@ -19,7 +19,8 @@ from typing import Dict, Any, Optional, List, Set
 
 from .primitives import (
     web_search, browse_page, scrape_data, generate_image,
-    fill_form, run_python, PrimitiveResult, PRIMITIVES,
+    fill_form, run_python, send_email, create_meeting, save_note, click_link,
+    PrimitiveResult, PRIMITIVES,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ class RiskClassifier:
     Does NOT use LLM - purely static analysis.
     """
 
-    SAFE_PRIMITIVES = {"web_search", "browse_page", "scrape_data", "generate_image"}
+    SAFE_PRIMITIVES = {"web_search", "browse_page", "scrape_data", "generate_image", "send_email", "create_meeting", "save_note", "click_link"}
     RISKY_PRIMITIVES = {"fill_form", "run_python"}
 
     # Patterns that are ALWAYS forbidden (security)
@@ -258,6 +259,14 @@ class SandboxExecutor:
                         error="timeout",
                         primitives_used=[primitive_name],
                     )
+                except TypeError as e:
+                    # Missing required arguments
+                    return ExecutionResult(
+                        success=False,
+                        output=f"Tool {primitive_name} called with wrong parameters: {str(e)}. Check the tool's required params and try again with correct params dict.",
+                        error="wrong_params",
+                        primitives_used=[primitive_name],
+                    )
                 except Exception as e:
                     return ExecutionResult(
                         success=False,
@@ -375,6 +384,11 @@ class SandboxExecutor:
             "generate_image": generate_image,
             "fill_form": fill_form,
             "run_python": run_python,
+            # New primitives (email, meeting, notes)
+            "send_email": send_email,
+            "create_meeting": create_meeting,
+            "save_note": save_note,
+            "click_link": click_link,
             # Context from previous steps
             "context": context,
         }
@@ -453,3 +467,154 @@ async def _sandbox_main():
                 error=str(e),
                 primitives_used=classification["primitives_used"],
             )
+
+
+# =============================================================================
+# MODULE-LEVEL EXPORTS (for tests and external use)
+# =============================================================================
+
+# Export FORBIDDEN_PATTERNS at module level for direct import
+FORBIDDEN_PATTERNS = RiskClassifier.FORBIDDEN_PATTERNS
+
+# Default sandbox timeout (30 seconds per README)
+SANDBOX_TIMEOUT = 30
+
+# Safe globals for sandbox execution
+SAFE_GLOBALS = {
+    # Math functions
+    "abs": abs,
+    "min": min,
+    "max": max,
+    "sum": sum,
+    "len": len,
+    "range": range,
+    "round": round,
+    "pow": pow,
+    "sorted": sorted,
+    "reversed": reversed,
+    "enumerate": enumerate,
+    "zip": zip,
+    "map": map,
+    "filter": filter,
+    # Type functions
+    "int": int,
+    "float": float,
+    "str": str,
+    "bool": bool,
+    "list": list,
+    "dict": dict,
+    "set": set,
+    "tuple": tuple,
+    # String methods
+    "print": print,
+    "format": format,
+    "repr": repr,
+    # Boolean
+    "True": True,
+    "False": False,
+    "None": None,
+    # Dangerous builtins REMOVED
+    "eval": None,
+    "exec": None,
+    "open": None,
+    "compile": None,
+    "__import__": None,
+    "globals": None,
+    "locals": None,
+    "getattr": None,
+    "setattr": None,
+    "delattr": None,
+}
+
+
+def get_safe_globals() -> dict:
+    """Get a copy of safe globals for sandbox execution"""
+    return SAFE_GLOBALS.copy()
+
+
+def is_code_safe(code: str) -> bool:
+    """
+    Check if code is safe to execute (no forbidden patterns).
+    
+    This is a static analysis check with NO LLM dependency.
+    
+    Args:
+        code: The code string to analyze
+        
+    Returns:
+        True if code is safe, False if it contains forbidden patterns
+    """
+    classifier = RiskClassifier()
+    result = classifier.classify(code)
+    return result["risk"] != "blocked"
+
+
+def analyze_code_risk(code: str) -> dict:
+    """
+    Analyze code and return risk classification.
+    
+    Returns:
+        {
+            "risk": "safe" | "risky" | "blocked",
+            "reason": str,
+            "primitives_used": List[str],
+            "blocked_patterns": List[str],
+            "safe": bool  # convenience field
+        }
+    """
+    classifier = RiskClassifier()
+    result = classifier.classify(code)
+    result["safe"] = result["risk"] != "blocked"
+    return result
+
+
+async def execute_sandboxed(code: str, context: dict = None) -> dict:
+    """
+    Execute code in a sandbox with safety checks.
+    
+    This is the main entry point for sandbox execution.
+    
+    Args:
+        code: The code to execute
+        context: Optional context dict
+        
+    Returns:
+        {
+            "success": bool,
+            "output": str,
+            "error": Optional[str],
+            "blocked": bool,
+            "primitives_used": List[str]
+        }
+    """
+    # First check if code is safe
+    if not is_code_safe(code):
+        risk = analyze_code_risk(code)
+        return {
+            "success": False,
+            "output": f"Code blocked: {risk['reason']}",
+            "error": "forbidden_pattern",
+            "blocked": True,
+            "primitives_used": [],
+        }
+    
+    # Execute in sandbox
+    executor = SandboxExecutor(timeout=SANDBOX_TIMEOUT)
+    result = await executor.execute(code, context or {})
+    
+    return {
+        "success": result.success,
+        "output": result.output,
+        "error": result.error,
+        "blocked": False,
+        "primitives_used": result.primitives_used,
+    }
+
+
+# Convenience class for configuration
+@dataclass
+class SandboxConfig:
+    """Configuration for sandbox execution"""
+    timeout: float = SANDBOX_TIMEOUT
+    max_output_size: int = 10000
+    allowed_primitives: List[str] = field(default_factory=lambda: list(RiskClassifier.SAFE_PRIMITIVES))

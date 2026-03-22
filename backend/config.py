@@ -39,11 +39,12 @@ class Settings(BaseSettings):
     # ==========================================================================
     # AI/LLM Settings
     # ==========================================================================
+    openrouter_api_key: Optional[str] = Field(default=None, description="OpenRouter API key")
     groq_api_key: Optional[str] = Field(default=None, description="Groq API key")
-    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key (fallback)")
+    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key (primary)")
     sambanova_api_key: Optional[str] = Field(default=None, description="SambaNova API key (free)")
-    gemini_api_key: Optional[str] = Field(default=None, description="Gemini API key (free)")
-    ai_model: str = Field(default="llama-3.3-70b-versatile", description="Default AI model")
+    gemini_api_key: Optional[str] = Field(default=None, description="Gemini API key (fallback)")
+    ai_model: str = Field(default="gpt-4-turbo-preview", description="Default AI model")
     ai_temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="AI temperature")
     ai_max_tokens: int = Field(default=2048, ge=1, description="Max tokens for AI response")
     
@@ -71,6 +72,15 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = Field(default=100, ge=1, description="Rate limit per minute")
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_expiry_hours: int = Field(default=24, ge=1, description="JWT expiry in hours")
+    
+    # ==========================================================================
+    # Encryption Settings (Required for credential storage)
+    # ==========================================================================
+    encryption_secret: str = Field(
+        default="change-this-secret-key-in-production-min32chars",
+        min_length=32,
+        description="Encryption secret for AES-256 credential storage (min 32 chars)"
+    )
     
     # ==========================================================================
     # Email Settings
@@ -140,14 +150,16 @@ class Settings(BaseSettings):
         missing = []
         
         if self.is_production:
-            if not self.groq_api_key:
-                missing.append("GROQ_API_KEY")
+            if not self.openai_api_key:
+                missing.append("OPENAI_API_KEY")
             if not self.supabase_url:
                 missing.append("SUPABASE_URL")
             if not self.supabase_key:
                 missing.append("SUPABASE_KEY")
             if self.secret_key == "change-me-in-production":
                 missing.append("SECRET_KEY (must be changed from default)")
+            if self.encryption_secret == "change-this-secret-key-in-production-min32chars":
+                missing.append("ENCRYPTION_SECRET (must be changed from default)")
         
         return missing
     

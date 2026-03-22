@@ -23,7 +23,12 @@ class PaymentLinkTool(Tool):
     requires_confirmation = True
 
     async def execute(self, **params) -> ToolResult:
-        amount = params.get("amount", 0)
+        raw_amount = params.get("amount", 0)
+        # Convert string to float if needed (LLM sometimes passes strings)
+        try:
+            amount = float(raw_amount) if isinstance(raw_amount, str) else raw_amount
+        except (ValueError, TypeError):
+            amount = 0
         payee_upi = params.get("payee_upi", "")
         description = params.get("description", "Payment")
 

@@ -185,16 +185,18 @@ async def setup_ai_identity(request: SetupIdentityRequest):
 @router.get("/status/{user_id}")
 async def get_identity_status(user_id: str):
     """Get the status of user's AI identity"""
-    
+
     import os
-    # Check if encryption is configured
-    if not os.getenv("ENCRYPTION_SECRET"):
+    encryption_configured = bool(os.getenv("ENCRYPTION_SECRET"))
+
+    if not get_identity_manager:
         return {
             "has_identity": False,
-            "message": "Identity system not configured. ENCRYPTION_SECRET environment variable required.",
-            "setup_required": True
+            "message": "Identity system not available on this server.",
+            "setup_required": True,
+            "encryption_configured": encryption_configured,
         }
-    
+
     try:
         manager = get_identity_manager()
         identity = await manager.get_identity(user_id)
@@ -202,7 +204,13 @@ async def get_identity_status(user_id: str):
         if not identity:
             return {
                 "has_identity": False,
-                "message": "No AI identity set up. Create a Gmail for your AI first."
+                "message": "No AI identity set up.",
+                "encryption_configured": encryption_configured,
+                "warning": (
+                    "ENCRYPTION_SECRET is not set; identity credentials may be stored with weak obfuscation."
+                    if not encryption_configured
+                    else None
+                ),
             }
         
         return {
@@ -216,13 +224,20 @@ async def get_identity_status(user_id: str):
                 "can_send_email": identity.can_send_email,
                 "can_read_email": identity.can_read_email,
                 "can_signup_services": identity.can_signup_services
-            }
+            },
+            "encryption_configured": encryption_configured,
+            "warning": (
+                "ENCRYPTION_SECRET is not set; identity credentials may be stored with weak obfuscation."
+                if not encryption_configured
+                else None
+            ),
         }
     except Exception as e:
         # Return a proper response instead of crashing
         return {
             "has_identity": False,
-            "message": f"Error checking identity: {str(e)}"
+            "message": f"Error checking identity: {str(e)}",
+            "encryption_configured": encryption_configured,
         }
 
 
@@ -329,9 +344,8 @@ async def get_available_services():
     """
     Get list of services available for automated signup.
     """
-    automation = ServiceSignupAutomation("dummy@example.com")
-    available = automation.get_available_services()
-    
+    available = ServiceSignupAutomation.get_available_services() if ServiceSignupAutomation else []
+
     return {
         "automated_signup": available,
         "message": f"{len(available)} services support automated signup"

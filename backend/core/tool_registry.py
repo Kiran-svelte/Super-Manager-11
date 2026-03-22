@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, Callable, Union
 
 from .primitives import PRIMITIVES, PrimitiveResult
+from .integration_manager.integration_store import integration_store
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class ToolDef:
     source: str                  # "primitive", "mcp", "stealth", "payment", "fallback", "workflow"
     handler: Optional[Callable] = None  # async function(params, context) -> PrimitiveResult
     parameter_schema: Optional[Dict[str, Any]] = None  # JSON Schema (for MCP tools)
+    required_integration: Optional[str] = None  # Needed integration (e.g. 'gmail', 'google_calendar')
 
 
 class ToolRegistry:
@@ -52,6 +54,14 @@ class ToolRegistry:
             return
 
         for name, info in PRIMITIVES.items():
+            req_int = None
+            if name == "send_email":
+                req_int = "gmail"
+            elif name == "create_meeting":
+                req_int = "zoom"  # Zoom integration required for Zoom meetings
+            elif name == "send_telegram":
+                req_int = None  # Telegram works without integration (bot token in env)
+            
             self.register(ToolDef(
                 name=name,
                 description=info["description"],
@@ -60,6 +70,7 @@ class ToolRegistry:
                 risk_level=info["risk"],
                 source="primitive",
                 handler=info["function"],
+                required_integration=req_int
             ))
 
         self._initialized = True
@@ -171,6 +182,19 @@ class ToolRegistry:
                 output=f"Tool '{name}' has no handler registered.",
                 error="no_handler",
             )
+
+        # 🔐 LAYER 6: INTEGRATION MANAGER CHECK
+        if tool.required_integration:
+            user_id = (context or {}).get("user_id", "default")
+            connected = integration_store.is_connected(user_id, tool.required_integration)
+            if not connected:
+                # Tell the agent that OAuth is required
+                return PrimitiveResult(
+                    success=False,
+                    output=f"Error: Missing integration. You MUST ask the user to connect '{tool.required_integration}' before proceeding.",
+                    error="integration_required",
+                    data={"required_integration": tool.required_integration}
+                )
 
         try:
             result = await tool.handler(**params)

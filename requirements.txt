@@ -31,6 +31,9 @@ google-auth-oauthlib>=1.1.0
 google-api-python-client>=2.108.0
 aiosmtplib>=3.0.0
 
+# ===== Firebase =====
+firebase-admin>=6.2.0
+
 # ===== WebSocket & Real-time =====
 websockets>=12.0
 

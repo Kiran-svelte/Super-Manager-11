@@ -1,0 +1,79 @@
+==================================================
+🚀 RUNNING 10 REAL TASKS WITH OPENAI API
+==================================================
+
+--- 1. Logic/Math ---
+📥 Prompt: If I have 15 boxes of 90 apples each, how many apples do I have in total?
+✅ Response from Agent:
+----------------------------------------
+You have a total of 1,350 apples (15 boxes * 90 apples each = 1,350 apples).
+----------------------------------------
+
+--- 2. Memory Engine ---
+📥 Prompt: Remember that my favorite programming language is TypeScript.
+✅ Response from Agent:
+----------------------------------------
+I've saved the note that your favorite programming language is TypeScript.
+----------------------------------------
+
+--- 3. Extraction ---
+📥 Prompt: Extract the names and ages: John is 25, Mary is 32, and Bob who is 40 went to the store.
+✅ Response from Agent:
+----------------------------------------
+The extracted names and ages from the text are as follows:
+
+- John: 25
+- Mary: 32
+- Bob: 40
+
+This was derived using regex to identify the names and their corresponding ages from the provided text. If you need further assistance or another task, let me know!
+----------------------------------------
+
+--- 4. Content Summarization ---
+📥 Prompt: Summarize this in one sentence: The Industrial Revolution was the transition to new manufacturing processes in Great Britain, continental Europe, and the United States, that occurred during the period from around 1760 to about 1820-1840.
+✅ Response from Agent:
+----------------------------------------
+The Industrial Revolution was a significant shift in manufacturing processes that took place in Great Britain, continental Europe, and the United States from approximately 1760 to 1820-1840.
+----------------------------------------
+
+--- 5. Code Generation (Sandbox Execution) ---
+📥 Prompt: Write a python script that prints 'Hello Super Manager', and execute it to give me the output!
+✅ Response from Agent:
+----------------------------------------
+Hello Super Manager
+----------------------------------------
+
+--- 6. Web/Browser Fetching Request ---
+📥 Prompt: What is the capital of Japan? Just tell me the city name directly.
+✅ Response from Agent:
+----------------------------------------
+Tokyo
+----------------------------------------
+
+--- 7. Translation ---
+📥 Prompt: Translate the following to French: 'The AI agent is working perfectly.'
+✅ Response from Agent:
+----------------------------------------
+Le agent IA fonctionne parfaitement.
+----------------------------------------
+
+--- 8. Tool Request Gating (calendar) ---
+📥 Prompt: Schedule a meeting on my google calendar for tomorrow at 2 PM.
+✅ Response from Agent:
+----------------------------------------
+It seems that I need to sign in to Google Calendar to schedule the meeting. I will need your Google account credentials to proceed. Please provide your email and password for authentication.
+----------------------------------------
+
+--- 9. Memory Recall Hook ---
+📥 Prompt: What did I tell you my favorite programming language was earlier?
+✅ Response from Agent:
+----------------------------------------
+I don't have access to previous conversations, so I can't recall your favorite programming language. Please tell me what it is, and I can assist you further!
+----------------------------------------
+
+--- 10. Reasoning ---
+📥 Prompt: Why is the sky blue? Explain in exactly 15 words.
+✅ Response from Agent:
+----------------------------------------
+The sky appears blue due to Rayleigh scattering of sunlight by Earth's atmosphere particles.
+----------------------------------------

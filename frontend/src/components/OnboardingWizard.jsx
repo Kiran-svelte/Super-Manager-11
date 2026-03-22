@@ -1,32 +1,17 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { 
   Mail, 
   Lock, 
   CheckCircle, 
   AlertCircle, 
   Loader,
-  ChevronRight,
-  ExternalLink,
-  Shield,
   Key,
-  Info,
   X
 } from 'lucide-react'
+import { apiUrl } from '../lib/apiBase'
 import './OnboardingWizard.css'
 
-const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
-
-/**
- * AI Identity Onboarding Wizard
- * 
- * Guides users through setting up an email for their AI:
- * 1. Create a new Gmail account
- * 2. Enable 2-Step Verification
- * 3. Create an App Password
- * 4. Connect it to Super Manager
- */
 export default function OnboardingWizard({ userId, onComplete, onSkip }) {
-  const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
@@ -35,8 +20,6 @@ export default function OnboardingWizard({ userId, onComplete, onSkip }) {
   const [email, setEmail] = useState('')
   const [appPassword, setAppPassword] = useState('')
   const [displayName, setDisplayName] = useState('AI Assistant')
-
-  const totalSteps = 4
 
   const handleSetup = async () => {
     if (!email || !appPassword) {
@@ -48,7 +31,7 @@ export default function OnboardingWizard({ userId, onComplete, onSkip }) {
     setError(null)
 
     try {
-      const response = await fetch(`${API}/api/identity/setup`, {
+      const response = await fetch(apiUrl('/api/identity/setup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -77,216 +60,6 @@ export default function OnboardingWizard({ userId, onComplete, onSkip }) {
     }
   }
 
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
-          <div className="wizard-step">
-            <div className="step-icon">
-              <Mail size={48} />
-            </div>
-            <h2>Create an Email for Your AI</h2>
-            <p className="step-description">
-              Your AI needs its own Gmail account to send emails, sign up for services, 
-              and act as your digital assistant.
-            </p>
-            
-            <div className="instruction-card">
-              <h3>Why a separate email?</h3>
-              <ul>
-                <li>🔐 <strong>Security:</strong> Your personal email stays private</li>
-                <li>🤖 <strong>Autonomy:</strong> AI can sign up for services autonomously</li>
-                <li>📧 <strong>Organization:</strong> Keep AI activities separate</li>
-                <li>🔑 <strong>API Access:</strong> AI can get its own API keys</li>
-              </ul>
-            </div>
-
-            <a 
-              href="https://accounts.google.com/signup" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="external-link-btn"
-            >
-              Create Gmail Account <ExternalLink size={16} />
-            </a>
-
-            <p className="hint">
-              💡 Tip: Use a name like "yourname.ai.assistant@gmail.com"
-            </p>
-          </div>
-        )
-
-      case 2:
-        return (
-          <div className="wizard-step">
-            <div className="step-icon">
-              <Shield size={48} />
-            </div>
-            <h2>Enable 2-Step Verification</h2>
-            <p className="step-description">
-              This is required to create an App Password (which we'll use next).
-            </p>
-
-            <div className="instruction-card">
-              <h3>Steps:</h3>
-              <ol>
-                <li>Go to your Google Account settings</li>
-                <li>Click <strong>Security</strong> in the left menu</li>
-                <li>Under "Signing in to Google", click <strong>2-Step Verification</strong></li>
-                <li>Follow the setup wizard (use your phone)</li>
-                <li>Complete the verification</li>
-              </ol>
-            </div>
-
-            <a 
-              href="https://myaccount.google.com/security" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="external-link-btn"
-            >
-              Open Google Security Settings <ExternalLink size={16} />
-            </a>
-
-            <div className="warning-box">
-              <AlertCircle size={20} />
-              <span>Make sure you're signed into the new AI email, not your personal account!</span>
-            </div>
-          </div>
-        )
-
-      case 3:
-        return (
-          <div className="wizard-step">
-            <div className="step-icon">
-              <Key size={48} />
-            </div>
-            <h2>Create an App Password</h2>
-            <p className="step-description">
-              App Passwords let the AI access Gmail without using your regular password.
-            </p>
-
-            <div className="instruction-card">
-              <h3>Steps:</h3>
-              <ol>
-                <li>Go to App Passwords page (link below)</li>
-                <li>Select app: <strong>Mail</strong></li>
-                <li>Select device: <strong>Other (Custom name)</strong></li>
-                <li>Enter name: <strong>Super Manager AI</strong></li>
-                <li>Click <strong>Generate</strong></li>
-                <li>Copy the 16-character password shown</li>
-              </ol>
-            </div>
-
-            <a 
-              href="https://myaccount.google.com/apppasswords" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="external-link-btn"
-            >
-              Create App Password <ExternalLink size={16} />
-            </a>
-
-            <div className="info-box">
-              <Info size={20} />
-              <span>The password looks like: <code>xxxx xxxx xxxx xxxx</code></span>
-            </div>
-          </div>
-        )
-
-      case 4:
-        return (
-          <div className="wizard-step">
-            <div className="step-icon success">
-              <Lock size={48} />
-            </div>
-            <h2>Connect Your AI</h2>
-            <p className="step-description">
-              Enter the Gmail address and App Password to give your AI its identity.
-            </p>
-
-            {error && (
-              <div className="error-box">
-                <AlertCircle size={20} />
-                <span>{error}</span>
-                <button onClick={() => setError(null)}><X size={16} /></button>
-              </div>
-            )}
-
-            {success ? (
-              <div className="success-box">
-                <CheckCircle size={48} />
-                <h3>AI Identity Created!</h3>
-                <p>Your AI can now send emails, sign up for services, and act autonomously.</p>
-              </div>
-            ) : (
-              <form onSubmit={(e) => { e.preventDefault(); handleSetup(); }}>
-                <div className="form-group">
-                  <label>
-                    <Mail size={16} /> AI Gmail Address
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="ai.assistant@gmail.com"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    <Key size={16} /> App Password
-                  </label>
-                  <input
-                    type="password"
-                    value={appPassword}
-                    onChange={(e) => setAppPassword(e.target.value.replace(/\s/g, ''))}
-                    placeholder="xxxxxxxxxxxxxxxx"
-                    maxLength={16}
-                    required
-                  />
-                  <span className="hint">Paste the 16-character app password (spaces are removed automatically)</span>
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    AI Display Name (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="AI Assistant"
-                  />
-                </div>
-
-                <button 
-                  type="submit" 
-                  className="submit-btn"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader className="spinning" size={20} />
-                      Verifying...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle size={20} />
-                      Connect AI Identity
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-          </div>
-        )
-
-      default:
-        return null
-    }
-  }
-
   return (
     <div className="onboarding-wizard">
       <div className="wizard-header">
@@ -296,49 +69,96 @@ export default function OnboardingWizard({ userId, onComplete, onSkip }) {
         </button>
       </div>
 
-      {/* Progress bar */}
-      <div className="progress-bar">
-        {[1, 2, 3, 4].map((s) => (
-          <div 
-            key={s}
-            className={`progress-step ${step >= s ? 'active' : ''} ${step === s ? 'current' : ''}`}
-            onClick={() => s < step && setStep(s)}
-          >
-            <div className="step-number">{s}</div>
-            <span className="step-label">
-              {s === 1 && 'Create Email'}
-              {s === 2 && 'Enable 2FA'}
-              {s === 3 && 'App Password'}
-              {s === 4 && 'Connect'}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Step content */}
       <div className="wizard-content">
-        {renderStep()}
-      </div>
+        <div className="wizard-step">
+          <h2>Connect Your AI's Gmail Account</h2>
+          <p className="step-description">
+            Your AI needs a dedicated Gmail account with an <strong>App Password</strong> to act autonomously and send emails on your behalf.
+          </p>
 
-      {/* Navigation */}
-      <div className="wizard-nav">
-        {step > 1 && (
-          <button 
-            className="nav-btn prev"
-            onClick={() => setStep(step - 1)}
-          >
-            Back
-          </button>
-        )}
-        
-        {step < totalSteps && (
-          <button 
-            className="nav-btn next"
-            onClick={() => setStep(step + 1)}
-          >
-            Next <ChevronRight size={16} />
-          </button>
-        )}
+          <div className="instruction-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '24px' }}>
+            <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px', color: '#e2e8f0' }}>
+              <Key size={18} /> How to get an App Password:
+            </h4>
+            <ol style={{ margin: 0, paddingLeft: '24px', color: '#cbd5e1', lineHeight: '1.6' }}>
+              <li>Enable <strong>2-Step Verification</strong> on the Google Account.</li>
+              <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa', textDecoration: 'none' }}>Google App Passwords</a>.</li>
+              <li>Create a new password (Custom name: "Super Manager AI") and paste the 16-letter code below.</li>
+            </ol>
+          </div>
+
+          {error && (
+            <div className="error-box">
+              <AlertCircle size={20} />
+              <span>{error}</span>
+              <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+          )}
+
+          {success ? (
+            <div className="success-box" style={{ textAlign: 'center', padding: '30px' }}>
+              <CheckCircle size={48} color="#10b981" style={{ margin: '0 auto 15px' }} />
+              <h3 style={{ color: '#10b981' }}>AI Identity Connected!</h3>
+              <p style={{ color: '#94a3b8' }}>Your AI is now ready to send emails and sign up for services.</p>
+            </div>
+          ) : (
+            <form onSubmit={(e) => { e.preventDefault(); handleSetup(); }}>
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e2e8f0', marginBottom: '8px' }}>
+                  <Mail size={16} /> AI Gmail Address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. yourname.assistant@gmail.com"
+                  required
+                  style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid #475569', borderRadius: '6px', color: 'white', marginBottom: '16px' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e2e8f0', marginBottom: '8px' }}>
+                  <Key size={16} /> App Password
+                </label>
+                <input
+                  type="password"
+                  value={appPassword}
+                  onChange={(e) => setAppPassword(e.target.value.replace(/\s/g, ''))}
+                  placeholder="16-character code"
+                  maxLength={19}
+                  required
+                  style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid #475569', borderRadius: '6px', color: 'white', marginBottom: '8px' }}
+                />
+                <div style={{ fontSize: '0.85em', color: '#94a3b8', marginBottom: '16px' }}>Spaces are removed automatically.</div>
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'block', color: '#e2e8f0', marginBottom: '8px' }}>AI Display Name (optional)</label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="AI Assistant"
+                  style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid #475569', borderRadius: '6px', color: 'white', marginBottom: '24px' }}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="submit-btn"
+                disabled={loading}
+                style={{ width: '100%', padding: '14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+              >
+                {loading ? (
+                  <><Loader className="spinning" size={20} /> Verifying...</>
+                ) : (
+                  <><CheckCircle size={20} /> Connect AI Identity</>
+                )}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )

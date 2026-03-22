@@ -12,9 +12,8 @@ import {
   Server,
   Zap
 } from 'lucide-react'
+import { apiUrl } from '../lib/apiBase'
 import './AISettings.css'
-
-const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
 
 /**
  * AI Settings Panel
@@ -38,7 +37,6 @@ export default function AISettings({ userId, onClose, onSave }) {
   
   // Current status
   const [currentIdentity, setCurrentIdentity] = useState(null)
-  const [capabilities, setCapabilities] = useState([])
   const [serviceAccounts, setServiceAccounts] = useState([])
 
   // Load current settings
@@ -50,7 +48,7 @@ export default function AISettings({ userId, onClose, onSave }) {
     setLoading(true)
     try {
       // Get current identity
-      const identityRes = await fetch(`${API}/api/identity/status/${userId}`)
+      const identityRes = await fetch(apiUrl(`/api/identity/status/${userId}`))
       const identityData = await identityRes.json()
       
       if (identityData.has_identity && identityData.identity) {
@@ -60,17 +58,10 @@ export default function AISettings({ userId, onClose, onSave }) {
       }
 
       // Get service accounts
-      const accountsRes = await fetch(`${API}/api/identity/services/${userId}`)
+      const accountsRes = await fetch(apiUrl(`/api/identity/services/${userId}`))
       if (accountsRes.ok) {
         const accountsData = await accountsRes.json()
         setServiceAccounts(accountsData.services || [])
-      }
-
-      // Get available capabilities
-      const capsRes = await fetch(`${API}/api/identity/task/capabilities`)
-      if (capsRes.ok) {
-        const capsData = await capsRes.json()
-        setCapabilities(capsData.capabilities || [])
       }
       
     } catch (err) {
@@ -111,36 +102,6 @@ export default function AISettings({ userId, onClose, onSave }) {
       setSuccess('Email configured successfully! Your AI can now sign up for services.')
       setCurrentIdentity(data.identity)
       onSave?.(data)
-      
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleTestSignup = async (serviceName) => {
-    setSaving(true)
-    setError(null)
-    setSuccess(null)
-
-    try {
-      // First create a plan
-      const planRes = await fetch(`${API}/api/identity/task/plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_request: `Sign up for ${serviceName} and get API key`
-        })
-      })
-
-      const planData = await planRes.json()
-
-      if (!planData.success) {
-        throw new Error(planData.detail || 'Failed to create plan')
-      }
-
-      setSuccess(`Plan created! Task ID: ${planData.task_id}. Check the status in the activity panel.`)
       
     } catch (err) {
       setError(err.message)
@@ -191,13 +152,6 @@ export default function AISettings({ userId, onClose, onSave }) {
           >
             <Key size={16} />
             Service Accounts
-          </button>
-          <button 
-            className={`tab ${activeTab === 'capabilities' ? 'active' : ''}`}
-            onClick={() => setActiveTab('capabilities')}
-          >
-            <Zap size={16} />
-            Capabilities
           </button>
         </div>
 
@@ -327,52 +281,6 @@ export default function AISettings({ userId, onClose, onSave }) {
                     <p>No service accounts yet. Your AI will create them as needed.</p>
                   </div>
                 )}
-              </div>
-
-              <div className="quick-signup">
-                <h4>Quick Signup</h4>
-                <p>Test autonomous signup for a service:</p>
-                <div className="signup-buttons">
-                  {['groq', 'together', 'huggingface', 'openrouter'].map(service => (
-                    <button 
-                      key={service}
-                      className="signup-btn"
-                      onClick={() => handleTestSignup(service)}
-                      disabled={saving}
-                    >
-                      {service}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Capabilities Tab */}
-          {activeTab === 'capabilities' && (
-            <div className="tab-content">
-              <div className="section-intro">
-                <Zap size={20} />
-                <p>These are the capabilities your AI can provide. It will automatically find and sign up for the right services.</p>
-              </div>
-
-              <div className="capabilities-list">
-                {capabilities.map((cap, i) => (
-                  <div key={i} className="capability-item">
-                    <div className="cap-header">
-                      <strong>{cap.name.replace(/_/g, ' ')}</strong>
-                    </div>
-                    <p className="cap-desc">{cap.description}</p>
-                    <div className="cap-providers">
-                      {cap.providers?.map((p, j) => (
-                        <span key={j} className={`provider-badge ${p.free_tier ? 'free' : ''}`}>
-                          {p.name}
-                          {p.free_tier && ' (free)'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           )}

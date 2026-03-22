@@ -65,10 +65,10 @@ async def process_intent(
     try:
         # Get or create session ID
         session_id = request.session_id or str(uuid.uuid4())
-        
+
         # Use the new TRUE AI Chat system
-        result = await true_ai_chat(session_id, request.message)
-        
+        result = await true_ai_chat(session_id, request.message, request.user_id)
+
         # Ensure result is always a dict (not list)
         results_data = result.get("results")
         if isinstance(results_data, list):
@@ -118,7 +118,7 @@ async def process_intent_legacy(
     """Legacy endpoint - redirects to true AI chat for compatibility"""
     # Just use the new AI chat system
     session_id = request.session_id or str(uuid.uuid4())
-    result = await true_ai_chat(session_id, request.message)
+    result = await true_ai_chat(session_id, request.message, request.user_id)
     return AgentResponse(
         response=result.get("response", ""),
         intent={"type": "ai_determined"},

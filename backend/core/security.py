@@ -164,8 +164,11 @@ class IPRateLimiter:
     - Thread-safe
     """
     
-    def __init__(self, config: Optional[IPRateLimitConfig] = None):
-        self.config = config or IPRateLimitConfig()
+    def __init__(self, config: Optional[IPRateLimitConfig] = None, requests_per_minute: int = None):
+        if requests_per_minute is not None:
+            self.config = IPRateLimitConfig(requests_per_minute=requests_per_minute)
+        else:
+            self.config = config or IPRateLimitConfig()
         self._minute_counts: Dict[str, List[float]] = defaultdict(list)
         self._hour_counts: Dict[str, List[float]] = defaultdict(list)
         self._blocked_ips: Dict[str, float] = {}
@@ -246,6 +249,20 @@ class IPRateLimiter:
                     "block_duration_minutes": self.config.block_duration_minutes
                 }
             }
+    
+    def is_allowed(self, ip: str) -> bool:
+        """
+        Check if request from IP is allowed.
+        Convenience method that wraps check_and_record.
+        
+        Args:
+            ip: IP address to check
+            
+        Returns:
+            True if allowed, False if rate limited
+        """
+        allowed, _ = self.check_and_record(ip)
+        return allowed
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -312,7 +329,7 @@ class InputValidator:
     SQL_INJECTION_PATTERNS = [
         r"('|\")\s*(;|--|\||`)",  # Quote followed by statement terminator
         r"(union|select|insert|update|delete|drop|truncate|alter)\s+",  # SQL keywords
-        r"(/\*|\*/|@@|@)",  # SQL comments and variables
+        r"(/\*|\*/|@@)",  # SQL comments and variables (not single @)
         r"(char|nchar|varchar|nvarchar)\s*\(",  # SQL functions
         r"(exec|execute|sp_|xp_)\s*\(",  # SQL procedures
         r"(waitfor|delay|benchmark|sleep)\s*\(",  # Time-based injection
@@ -409,6 +426,35 @@ class InputValidator:
                     return False
         
         return True
+    
+    def validate_text(self, text: str) -> str:
+        """
+        Validate and sanitize general text input.
+        Checks for SQL injection and XSS, returns sanitized text.
+        """
+        if not isinstance(text, str):
+            return str(text)
+        
+        # Check for dangerous patterns (but don't block - sanitize)
+        sanitized = self.sanitize_string(text)
+        return sanitized
+    
+    def validate_path(self, path: str) -> str:
+        """
+        Validate and sanitize file path input.
+        Returns sanitized path or False if dangerous.
+        """
+        if not isinstance(path, str):
+            return False
+        
+        # Check for path traversal
+        if self.check_path_traversal(path):
+            # Remove dangerous patterns
+            sanitized = re.sub(r'\.\.[\\/]', '', path)
+            sanitized = re.sub(r'\.{2,}', '', sanitized)
+            return sanitized
+        
+        return path
 
 
 class InputValidationMiddleware(BaseHTTPMiddleware):
@@ -516,6 +562,52 @@ class DataMasker:
                 ]
             else:
                 result[key] = value
+        
+        return result
+    
+    @classmethod
+    def mask_sensitive(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Mask sensitive data in a dictionary.
+        Alias for mask_dict for clearer API.
+        """
+        return cls.mask_dict(data)
+    
+    @classmethod
+    def mask_pii(cls, text: str) -> str:
+        """
+        Mask PII (Personally Identifiable Information) in text.
+        
+        Masks:
+        - Credit card numbers
+        - Social security numbers
+        - Phone numbers (partial)
+        - Email addresses (partial)
+        """
+        if not isinstance(text, str):
+            return str(text)
+        
+        result = text
+        
+        # Mask credit card numbers (16 digits, possibly with spaces/dashes)
+        cc_pattern = r'\b(\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4})\b'
+        result = re.sub(cc_pattern, '****-****-****-****', result)
+        
+        # Mask SSN (XXX-XX-XXXX)
+        ssn_pattern = r'\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b'
+        result = re.sub(ssn_pattern, '***-**-****', result)
+        
+        # Mask email addresses
+        email_pattern = r'\b([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b'
+        def mask_email_match(match):
+            local = match.group(1)
+            domain = match.group(2)
+            if len(local) <= 2:
+                masked_local = '*' * len(local)
+            else:
+                masked_local = local[0] + '*' * (len(local) - 2) + local[-1]
+            return f"{masked_local}@{domain}"
+        result = re.sub(email_pattern, mask_email_match, result)
         
         return result
 

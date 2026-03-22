@@ -150,6 +150,23 @@ class AIBrain:
 
     def __init__(self):
         self.agent = AdaptiveAgent()
+        self._register_tools()
+
+    def _register_tools(self):
+        """Register all dynamic tools (payment, stealth, fallback, etc.)"""
+        try:
+            # Initialize the registry with primitives
+            registry = get_tool_registry()
+            registry.initialize()
+            
+            # Register additional tools
+            register_payment_tools()
+            register_stealth_tools()
+            register_fallback_tools()
+            
+            logger.info(f"[BRAIN] Registered {len(registry.get_tool_names())} tools")
+        except Exception as e:
+            logger.warning(f"[BRAIN] Tool registration warning: {e}")
 
     def _build_feedback_context(self, session: Session, user_id: str) -> str:
         """Build feedback context string for the system prompt"""
@@ -234,9 +251,21 @@ class AIBrain:
             elif event.type == "ask":
                 ask_data = event.data
                 final_answer = event.content
-            elif event.type == "confirm_needed":
+            elif event.type == "confirm_needed" or event.type == "integration_needed":
                 confirm_data = event.data
                 final_answer = event.content
+
+        # Record agent execution as an orchestrated "workflow" task for the Tasks panel.
+        created_task_id: Optional[str] = None
+        try:
+            created_task_id = await self._record_workflow_task_from_steps(
+                user_id=user_id,
+                session_id=session_id,
+                user_message=user_message,
+                steps=steps,
+            )
+        except Exception as e:
+            logger.warning(f"[BRAIN] Task bridge failed: {e}")
 
         # Store final answer in session
         if final_answer:
@@ -258,6 +287,7 @@ class AIBrain:
                 "options": ask_data.get("options", []),
                 "session_id": session_id,
                 "steps": steps,
+                "task_id": created_task_id,
             }
 
         # If confirmation needed for risky action
@@ -268,9 +298,11 @@ class AIBrain:
                 "message": final_answer,
                 "type": "task",
                 "status": "confirm",
+                "ui_components": confirm_data if confirm_data.get("service") else None,
                 "code_preview": code_preview,
                 "session_id": session_id,
                 "steps": steps,
+                "task_id": created_task_id,
             }
 
         return {
@@ -278,7 +310,89 @@ class AIBrain:
             "type": "answer",
             "session_id": session_id,
             "steps": steps,
+            "task_id": created_task_id,
         }
+
+    async def _record_workflow_task_from_steps(
+        self,
+        user_id: str,
+        session_id: str,
+        user_message: str,
+        steps: List[Dict[str, Any]],
+    ) -> Optional[str]:
+        """Create a single orchestrator task representing the agent's executed actions."""
+        from backend.agent.orchestrator import (
+            get_orchestrator,
+            OrchestratedTask,
+            Substep,
+            TaskStatus,
+            SubstepStatus,
+            DetectionType,
+        )
+
+        if not steps:
+            return None
+
+        action_results: List[Dict[str, Any]] = [s for s in steps if s.get("type") == "action_result"]
+        if not action_results:
+            return None
+
+        substeps: List[Substep] = []
+        any_failed = False
+
+        for idx, step in enumerate(action_results, start=1):
+            data = step.get("data") or {}
+            meta = data.get("_meta") or {}
+            primitive = meta.get("primitive") or "unknown"
+            success = bool(meta.get("success", True))
+            err = meta.get("error")
+
+            if not success:
+                any_failed = True
+
+            substeps.append(
+                Substep(
+                    id=str(uuid.uuid4()),
+                    step_number=idx,
+                    title=f"{primitive}",
+                    description=(step.get("content") or "")[:200],
+                    status=SubstepStatus.COMPLETED if success else SubstepStatus.FAILED,
+                    progress_weight=10,
+                    action_type=primitive,
+                    action_params=meta.get("params") or {},
+                    result={
+                        "output": step.get("content"),
+                        "data": {k: v for k, v in data.items() if k != "_meta"},
+                        "error": err,
+                    },
+                    error_message=str(err) if err else "",
+                    detection_type=DetectionType.IMMEDIATE,
+                )
+            )
+
+        task_id = str(uuid.uuid4())
+        title = (user_message or "Workflow").strip()
+        if len(title) > 60:
+            title = title[:57] + "..."
+
+        task = OrchestratedTask(
+            id=task_id,
+            user_id=user_id,
+            title=title,
+            description="Chat workflow execution",
+            task_type="chat_workflow",
+            status=TaskStatus.FAILED if any_failed else TaskStatus.COMPLETED,
+            progress_percent=100,
+            substeps=substeps,
+            metadata={
+                "session_id": session_id,
+                "message": user_message,
+            },
+        )
+
+        orchestrator = get_orchestrator()
+        orchestrator.active_tasks[task_id] = task
+        return task_id
 
     async def process_stream(self, session_id: str, user_message: str, user_id: str = "default"):
         """
@@ -324,7 +438,7 @@ class AIBrain:
                     "context": event.data.get("context", {}),
                 }
                 final_answer = event.content
-            elif event.type == "confirm_needed":
+            elif event.type == "confirm_needed" or event.type == "integration_needed":
                 session.pending_confirmation = event.data
                 final_answer = event.content
 
@@ -378,7 +492,7 @@ class AIBrain:
                 elif event.type == "ask":
                     ask_data = event.data
                     final_answer = event.content
-                elif event.type == "confirm_needed":
+                elif event.type == "confirm_needed" or event.type == "integration_needed":
                     confirm_data = event.data
                     final_answer = event.content
 
@@ -408,6 +522,7 @@ class AIBrain:
                     "message": final_answer,
                     "type": "task",
                     "status": "confirm",
+                    "ui_components": confirm_data if confirm_data.get("service") else None,
                     "code_preview": confirm_data.get("code"),
                     "session_id": session.id,
                     "steps": steps,
@@ -443,6 +558,17 @@ class AIBrain:
                 if event.type == "answer":
                     final_answer = event.content
 
+            created_task_id: Optional[str] = None
+            try:
+                created_task_id = await self._record_workflow_task_from_steps(
+                    user_id=user_id,
+                    session_id=session.id,
+                    user_message=user_message,
+                    steps=steps,
+                )
+            except Exception as e:
+                logger.warning(f"[BRAIN] Task bridge failed (confirmation): {e}")
+
             if final_answer:
                 session.messages.append(Message(role=MessageType.AI, content=final_answer))
 
@@ -452,6 +578,7 @@ class AIBrain:
                 "status": "done",
                 "session_id": session.id,
                 "steps": steps,
+                "task_id": created_task_id,
             }
 
         elif _is_confirmation(user_message, CONFIRM_NO):
@@ -508,7 +635,7 @@ class AIBrain:
                         "context": event.data.get("context", {}),
                     }
                     final_answer = event.content
-                elif event.type == "confirm_needed":
+                elif event.type == "confirm_needed" or event.type == "integration_needed":
                     session.pending_confirmation = event.data
                     final_answer = event.content
 
@@ -560,8 +687,12 @@ class AIBrain:
         return history
 
     def submit_feedback(self, session_id: str, user_id: str, message_index: int,
-                        rating: str, comment: str = None, answer_preview: str = "") -> Dict:
-        """Submit user feedback for an AI response"""
+                        rating: str, comment: str = None, answer_preview: str = "", 
+                        task_type: str = None) -> Dict:
+        """
+        Submit user feedback for an AI response.
+        Also updates strategy store confidence for learning loop.
+        """
         session = db.get_session(session_id)
 
         feedback = {
@@ -575,6 +706,14 @@ class AIBrain:
 
         session.feedback_history.append(feedback)
         db.add_feedback(user_id, feedback)
+
+        # LEARNING LOOP: Update strategy confidence based on feedback
+        if task_type:
+            from .strategy_store import StrategyStore
+            strategies = StrategyStore()
+            positive = rating in ("positive", "thumbs_up", "good", "helpful")
+            strategies.apply_feedback(task_type, positive)
+            logger.info(f"Learning loop: {task_type} got {'positive' if positive else 'negative'} feedback")
 
         logger.info(f"Feedback: {rating} from user {user_id[:8]}... session {session_id[:8]}...")
 

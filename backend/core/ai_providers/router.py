@@ -12,6 +12,7 @@ from enum import Enum
 import logging
 
 from .base_provider import BaseAIProvider, AIResponse, ProviderStatus
+from .openrouter_provider import OpenRouterProvider, get_openrouter_provider
 from .ollama_provider import OllamaProvider, get_ollama_provider
 from .openai_provider import OpenAIProvider, get_openai_provider
 from .groq_provider import GroqProvider, get_groq_provider
@@ -35,12 +36,13 @@ class AIRouter:
     Intelligent AI router with automatic failover.
 
     Priority order (COST_OPTIMIZED - default):
-    1. Ollama (local, free, private)
-    2. Groq (fast, free tier)
-    3. Gemini (free, high quality)
-    4. SambaNova (free, DeepSeek/Llama)
-    5. Zuki (free API)
-    6. OpenAI (paid, most capable)
+    1. OpenAI (primary, most capable)
+    2. Gemini (fallback, high quality, free)
+    3. OpenRouter (200+ models)
+    4. Groq (fast, free tier)
+    5. SambaNova (free, DeepSeek/Llama)
+    6. Ollama (local, free, private)
+    7. Zuki (free API)
     """
     
     def __init__(self, strategy: RoutingStrategy = RoutingStrategy.COST_OPTIMIZED):
@@ -57,14 +59,15 @@ class AIRouter:
         
         logger.info("[AI_ROUTER] Initializing providers...")
         
-        # Initialize providers in priority order
+        # Initialize providers in priority order (OpenAI is PRIMARY, Gemini is FALLBACK)
         self._providers = {
-            "ollama": get_ollama_provider(),
-            "groq": get_groq_provider(),
+            "openai": get_openai_provider(),
             "gemini": get_gemini_provider(),
+            "openrouter": get_openrouter_provider(),
+            "groq": get_groq_provider(),
             "sambanova": get_sambanova_provider(),
-            "zuki": get_zuki_provider(),
-            "openai": get_openai_provider()
+            "ollama": get_ollama_provider(),
+            "zuki": get_zuki_provider()
         }
         
         # Check health of all providers concurrently
@@ -92,14 +95,14 @@ class AIRouter:
     def _get_provider_priority(self) -> List[str]:
         """Get provider priority based on strategy"""
         if self.strategy == RoutingStrategy.COST_OPTIMIZED:
-            return ["ollama", "groq", "gemini", "sambanova", "zuki", "openai"]
+            return ["openai", "gemini", "openrouter", "groq", "sambanova", "ollama", "zuki"]
         elif self.strategy == RoutingStrategy.SPEED_OPTIMIZED:
             # Sort by average latency
             providers = list(self._providers.items())
             providers.sort(key=lambda x: x[1].avg_latency if x[1].avg_latency > 0 else float('inf'))
             return [p[0] for p in providers]
         elif self.strategy == RoutingStrategy.QUALITY_OPTIMIZED:
-            return ["openai", "gemini", "groq", "sambanova", "zuki", "ollama"]
+            return ["openai", "gemini", "openrouter", "groq", "sambanova", "ollama", "zuki"]
         else:
             return list(self._providers.keys())
     

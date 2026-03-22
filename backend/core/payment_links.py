@@ -36,6 +36,16 @@ async def generate_payment_link(
     For INR: Creates UPI deep link + QR code (completely free).
     For other currencies: Tries Stripe, then Razorpay.
     """
+    # Convert string to float if needed (LLM sometimes passes strings)
+    try:
+        amount = float(amount) if isinstance(amount, str) else amount
+    except (ValueError, TypeError):
+        return PrimitiveResult(
+            success=False,
+            output="Invalid amount format.",
+            error="invalid_amount",
+        )
+    
     if amount <= 0:
         return PrimitiveResult(
             success=False,

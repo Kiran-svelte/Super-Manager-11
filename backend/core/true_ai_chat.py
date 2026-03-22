@@ -119,6 +119,11 @@ AVAILABLE_TOOLS = [
                     "scheduled_time": {
                         "type": "string",
                         "description": "When to schedule the meeting (can be 'now' for instant)"
+                    },
+                    "platform": {
+                        "type": "string",
+                        "description": "The video meeting platform to use (e.g., 'zoom', 'google_meet'). Default is usually preferred platform.",
+                        "enum": ["zoom", "google_meet", "jitsi"]
                     }
                 },
                 "required": ["title"]
@@ -317,13 +322,15 @@ class TrueAIChat:
         self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         self.api_url = "https://api.groq.com/openai/v1/chat/completions"
         
-    async def chat(self, session_id: str, user_message: str) -> Dict[str, Any]:
+    async def chat(self, session_id: str, user_message: str, user_id: str = "default") -> Dict[str, Any]:
         """
         The main chat function. Takes user message, returns AI response.
         This is where ALL responses come from - no hardcoding!
         """
-        # Get conversation history
+        # Save user_id to conversation
         conversation = get_conversation(session_id)
+        if not conversation.user_info.get("id"):
+            conversation.user_info["id"] = user_id
         
         # Add user message to history
         conversation.add_message("user", user_message)
@@ -428,9 +435,49 @@ DO NOT call the original action tool again - use execute_confirmed_action instea
         for tool_call in tool_calls:
             func_name = tool_call["function"]["name"]
             func_args = json.loads(tool_call["function"]["arguments"])
-            
+
             print(f"[AI TOOL] {func_name} with args: {func_args}")
+
+            # =========================================================================
+            # INTEGRATION MANAGER: Check API Availability Layer
+            # =========================================================================
+            from backend.core.integration_manager.integration_store import integration_store
             
+            required_integration = None
+            if func_name == "create_meeting":
+                # Check what platform they chose (or prompt zoom if explicitly noted in user text)
+                # But actually, rely on the LLM parsing it to platform argument
+                platform = func_args.get("platform", "").lower()
+                if "zoom" in platform:
+                    required_integration = "zoom"
+                elif "meet" in platform or "google" in platform:
+                    required_integration = "google_calendar"
+            elif func_name == "send_email":
+                required_integration = "gmail"
+            elif func_name == "send_whatsapp":
+                required_integration = "whatsapp"
+            
+            if required_integration:
+                user_id = conversation.user_info.get("id", "default")
+                if not integration_store.is_connected(user_id, required_integration):
+                    # API NOT CONNECTED -> Fallback to asking user
+                    print(f"[{func_name}] Requires {required_integration} but NOT connected. Asking user.")
+                    app_name = integration_store.AVAILABLE_INTEGRATIONS.get(required_integration, {}).get("name", required_integration.title())
+                    fallback_msg = (
+                        f"I'm ready to handle this, but I need to link to your **{app_name}** account first.\n\n"
+                        f"🔒 *We use secure token-based OAuth and will never store your raw credentials.* Connect it once and I'll handle the rest quietly next time!\n\n"
+                        f"To connect, please go to the **Integrations Hub** and link your {app_name} account."
+                    )
+                    conversation.add_message("assistant", fallback_msg)
+                    return {
+                        "response": fallback_msg,
+                        "session_id": session_id,
+                        "requires_connection": True,
+                        "required_integration": required_integration,
+                        "action_completed": False
+                    }
+            # =========================================================================
+
             # Handle execution confirmation
             if func_name == "execute_confirmed_action":
                 if func_args.get("confirmed") and conversation.pending_action:
@@ -533,19 +580,32 @@ DO NOT call the original action tool again - use execute_confirmed_action instea
                     return {"status": "success", "action": "email_sent", "to": args.get("to"), "result": result}
             
             elif tool == "create_meeting":
-                plugin = plugin_manager.get_plugin("meeting")
-                if plugin:
+                platform = args.get("platform", "jitsi").lower()
+                
+                if "zoom" in platform:
+                    plugin = plugin_manager.get_plugin("zoom")
+                elif "meet" in platform or "google" in platform:
+                    plugin = plugin_manager.get_plugin("calendar") # Assuming we have calendar plugin for meet
+                else:
+                    plugin = None
+
+                # Only use plugin if not fallback and we found it
+                if plugin and hasattr(plugin, "execute"):
+                    # We might need to map to plugin's expected action name
+                    action_name = "schedule_meeting" if plugin.name == "zoom" else "create_meeting"
+                    
                     result = await plugin.execute({
-                        "action": "create_meeting",
+                        "action": action_name,
                         "parameters": {
+                            "topic": args.get("title", "Meeting"),
                             "title": args.get("title", "Meeting"),
-                            "participants": args.get("participants", [])
+                            "participants": args.get("participants", []),
+                            "scheduled_time": args.get("scheduled_time", "now")
                         }
                     }, {})
                     return {"status": "success", "action": "meeting_created", "result": result}
                 else:
-                    # Fallback to Jitsi
-                    meeting_id = f"supermanager-{uuid.uuid4().hex[:8]}"
+                    # Fallback to Jitsi (browser automation not needed, API is open)
                     meeting_url = f"https://meet.jit.si/{meeting_id}"
                     return {
                         "status": "success", 
@@ -766,16 +826,17 @@ def get_ai_chat() -> TrueAIChat:
 # SIMPLE API FUNCTION
 # ============================================================================
 
-async def chat(session_id: str, message: str) -> Dict[str, Any]:
+async def chat(session_id: str, message: str, user_id: str = "default") -> Dict[str, Any]:
     """
     Simple chat function - this is all you need to call!
-    
+
     Args:
         session_id: The conversation session ID
         message: The user's message
-        
+        user_id: The ID of the current user
+
     Returns:
         Dict with 'response' and other metadata
     """
     ai = get_ai_chat()
-    return await ai.chat(session_id, message)
+    return await ai.chat(session_id, message, user_id)

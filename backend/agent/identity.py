@@ -820,10 +820,260 @@ class SensitiveDataHandler:
 
 
 # =============================================================================
+# FIREBASE INTEGRATION
+# =============================================================================
+
+class FirebaseIdentityManager:
+    """
+    Firebase-backed identity manager for enhanced storage.
+    
+    This provides an alternative to Supabase for identity storage,
+    with support for OAuth tokens and service credentials.
+    """
+    
+    def __init__(self):
+        self._firebase_store = None
+        self._identities: Dict[str, AIIdentity] = {}
+        self._gmail_managers: Dict[str, GmailManager] = {}
+        
+        try:
+            from ..core.firebase_config import get_firebase_identity_store
+            self._firebase_store = get_firebase_identity_store()
+        except ImportError:
+            pass
+        
+        try:
+            self.encryption = EncryptionManager()
+        except:
+            self.encryption = None
+    
+    @property
+    def available(self) -> bool:
+        return self._firebase_store is not None and self._firebase_store.available
+    
+    async def create_identity(
+        self,
+        user_id: str,
+        email: str,
+        display_name: str = "AI Assistant",
+        auth_type: str = "oauth"
+    ) -> Tuple[Optional[AIIdentity], str]:
+        """Create identity in Firebase"""
+        
+        if not self.available:
+            return None, "Firebase not configured"
+        
+        identity_id = str(uuid.uuid4())
+        
+        identity_data = {
+            "id": identity_id,
+            "user_id": user_id,
+            "email": email,
+            "display_name": display_name,
+            "auth_type": auth_type,
+            "status": "active",
+            "can_send_email": True,
+            "can_read_email": True,
+            "created_at": datetime.now().isoformat(),
+        }
+        
+        success = await self._firebase_store.save_identity(user_id, identity_data)
+        
+        if success:
+            identity = AIIdentity(
+                id=identity_id,
+                user_id=user_id,
+                email=email,
+                display_name=display_name,
+                auth_type=AuthType.OAUTH if auth_type == "oauth" else AuthType.APP_PASSWORD,
+                status=IdentityStatus.ACTIVE,
+                can_send_email=True,
+                can_read_email=True,
+            )
+            self._identities[user_id] = identity
+            return identity, "Identity created successfully"
+        
+        return None, "Failed to save identity to Firebase"
+    
+    async def get_identity(self, user_id: str) -> Optional[AIIdentity]:
+        """Get identity from Firebase"""
+        
+        # Check cache
+        if user_id in self._identities:
+            return self._identities[user_id]
+        
+        if not self.available:
+            return None
+        
+        data = await self._firebase_store.get_identity(user_id)
+        
+        if data:
+            identity = AIIdentity(
+                id=data.get("id", ""),
+                user_id=data.get("user_id", user_id),
+                email=data.get("email", ""),
+                display_name=data.get("display_name", "AI Assistant"),
+                auth_type=AuthType(data.get("auth_type", "oauth")),
+                status=IdentityStatus(data.get("status", "active")),
+                can_send_email=data.get("can_send_email", True),
+                can_read_email=data.get("can_read_email", True),
+            )
+            self._identities[user_id] = identity
+            return identity
+        
+        return None
+    
+    async def save_oauth_token(
+        self,
+        user_id: str,
+        service: str,
+        token_data: Dict[str, Any]
+    ) -> bool:
+        """Save OAuth token for a service"""
+        
+        if not self.available:
+            return False
+        
+        # Encrypt sensitive token data
+        if self.encryption and "access_token" in token_data:
+            token_data = token_data.copy()
+            token_data["access_token_encrypted"] = self.encryption.encrypt(token_data.pop("access_token"))
+            if "refresh_token" in token_data:
+                token_data["refresh_token_encrypted"] = self.encryption.encrypt(token_data.pop("refresh_token"))
+        
+        return await self._firebase_store.save_oauth_token(user_id, service, token_data)
+    
+    async def get_oauth_token(
+        self,
+        user_id: str,
+        service: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get OAuth token for a service"""
+        
+        if not self.available:
+            return None
+        
+        token_data = await self._firebase_store.get_oauth_token(user_id, service)
+        
+        if token_data and self.encryption:
+            # Decrypt sensitive data
+            if "access_token_encrypted" in token_data:
+                token_data["access_token"] = self.encryption.decrypt(token_data.pop("access_token_encrypted"))
+            if "refresh_token_encrypted" in token_data:
+                token_data["refresh_token"] = self.encryption.decrypt(token_data.pop("refresh_token_encrypted"))
+        
+        return token_data
+
+
+# =============================================================================
+# UNIFIED IDENTITY MANAGER 
+# =============================================================================
+
+class UnifiedIdentityManager:
+    """
+    Unified identity manager that uses both Supabase and Firebase.
+    
+    Falls back gracefully between storage backends.
+    """
+    
+    def __init__(self):
+        self._supabase_manager = None
+        self._firebase_manager = None
+        
+        # Try to initialize both
+        try:
+            self._supabase_manager = AIIdentityManager()
+        except Exception as e:
+            print(f"[UNIFIED] Supabase identity manager not available: {e}")
+        
+        try:
+            self._firebase_manager = FirebaseIdentityManager()
+        except Exception as e:
+            print(f"[UNIFIED] Firebase identity manager not available: {e}")
+    
+    async def get_identity(self, user_id: str) -> Optional[AIIdentity]:
+        """Get identity from any available backend"""
+        
+        # Try Supabase first
+        if self._supabase_manager:
+            try:
+                identity = await self._supabase_manager.get_identity(user_id)
+                if identity:
+                    return identity
+            except:
+                pass
+        
+        # Try Firebase
+        if self._firebase_manager and self._firebase_manager.available:
+            try:
+                identity = await self._firebase_manager.get_identity(user_id)
+                if identity:
+                    return identity
+            except:
+                pass
+        
+        return None
+    
+    async def create_identity(
+        self,
+        user_id: str,
+        email: str,
+        password: str = None,
+        display_name: str = "AI Assistant",
+        auth_type: str = "oauth"
+    ) -> Tuple[Optional[AIIdentity], str]:
+        """Create identity in available backend"""
+        
+        # Use Supabase if password provided (app password auth)
+        if password and self._supabase_manager:
+            return await self._supabase_manager.create_identity(
+                user_id, email, password, display_name, 
+                AuthType.APP_PASSWORD if auth_type == "app_password" else AuthType.OAUTH
+            )
+        
+        # Use Firebase for OAuth
+        if self._firebase_manager and self._firebase_manager.available:
+            return await self._firebase_manager.create_identity(
+                user_id, email, display_name, auth_type
+            )
+        
+        # Fall back to Supabase
+        if self._supabase_manager:
+            return await self._supabase_manager.create_identity(
+                user_id, email, password or "", display_name,
+                AuthType.OAUTH if auth_type == "oauth" else AuthType.APP_PASSWORD
+            )
+        
+        return None, "No identity storage backend available"
+    
+    async def get_gmail_manager(self, user_id: str) -> Optional[GmailManager]:
+        """Get Gmail manager for a user"""
+        
+        if self._supabase_manager:
+            return await self._supabase_manager.get_gmail_manager(user_id)
+        return None
+    
+    async def send_email_as_ai(
+        self,
+        user_id: str,
+        to: str,
+        subject: str,
+        body: str
+    ) -> Tuple[bool, str]:
+        """Send email using user's AI identity"""
+        
+        if self._supabase_manager:
+            return await self._supabase_manager.send_email_as_ai(user_id, to, subject, body)
+        
+        return False, "Email sending not available"
+
+
+# =============================================================================
 # SINGLETON ACCESS
 # =============================================================================
 
 _identity_manager: Optional[AIIdentityManager] = None
+_unified_manager: Optional[UnifiedIdentityManager] = None
 
 def get_identity_manager() -> AIIdentityManager:
     """Get singleton AI Identity Manager"""
@@ -831,3 +1081,11 @@ def get_identity_manager() -> AIIdentityManager:
     if _identity_manager is None:
         _identity_manager = AIIdentityManager()
     return _identity_manager
+
+
+def get_unified_identity_manager() -> UnifiedIdentityManager:
+    """Get unified identity manager with all backends"""
+    global _unified_manager
+    if _unified_manager is None:
+        _unified_manager = UnifiedIdentityManager()
+    return _unified_manager

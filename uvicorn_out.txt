@@ -1,0 +1,289 @@
+[90m13:34:39.682[0m [32mINFO    [0m [35mbackend.main        [0m [DB] Using Supabase PostgreSQL
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [AdaptiveAgent] Initialized - use_openai: True, use_openrouter: False
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: web_search (source=primitive, risk=safe)
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: browse_page (source=primitive, risk=safe)
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: scrape_data (source=primitive, risk=safe)
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: generate_image (source=primitive, risk=safe)
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: fill_form (source=primitive, risk=risky)
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: run_python (source=primitive, risk=risky)
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: send_email (source=primitive, risk=safe)
+[90m13:34:42.166[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: create_meeting (source=primitive, risk=safe)
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: save_note (source=primitive, risk=safe)
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: click_link (source=primitive, risk=safe)
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Initialized with 10 built-in primitives
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: generate_payment_link (source=payment, risk=risky)
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.payment_links[0m [PAYMENT_LINKS] Registered generate_payment_link tool
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: stealth_browse (source=stealth, risk=safe)
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: stealth_fill_form (source=stealth, risk=risky)
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: stealth_screenshot (source=stealth, risk=safe)
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.stealth_browser[0m [STEALTH] Registered 3 stealth browser tools. Available engines: ['playwright']
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.tool_registry[0m [TOOL_REGISTRY] Registered: human_fallback (source=fallback, risk=safe)
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.human_fallback[0m [HUMAN_FALLBACK] Registered human_fallback tool
+[90m13:34:42.167[0m [32mINFO    [0m [35mbackend.core.brain  [0m [BRAIN] Registered 15 tools
+[SCHEDULER] APScheduler not installed. Run: pip install apscheduler
+[90m13:34:43.426[0m [32mINFO    [0m [35mbackend.main        [0m [IMPORT] ✅ agent_v2 loaded
+[90m13:34:43.447[0m [32mINFO    [0m [35mbackend.main        [0m [IMPORT] ✅ tasks_v2 loaded
+[90m13:34:55.412[0m [32mINFO    [0m [35mbackend.main        [0m [IMPORT] ✅ identity loaded
+[90m13:34:55.437[0m [32mINFO    [0m [35mbackend.main        [0m [IMPORT] ✅ oauth loaded
+[90m13:34:55.454[0m [32mINFO    [0m [35mbackend.main        [0m [IMPORT] ✅ automation loaded
+[90m13:34:55.464[0m [32mINFO    [0m [35mbackend.main        [0m [IMPORT] ✅ integrations loaded
+[90m13:34:55.486[0m [32mINFO    [0m [35mbackend.core.security[0m Security middleware configured
+[90m13:34:55.498[0m [32mINFO    [0m [35mbackend.main        [0m [ROUTER] agent_v2 router added
+[90m13:34:55.503[0m [32mINFO    [0m [35mbackend.main        [0m [ROUTER] tasks_v2 router added
+[90m13:34:55.511[0m [32mINFO    [0m [35mbackend.main        [0m [ROUTER] identity router added
+[90m13:34:55.515[0m [32mINFO    [0m [35mbackend.main        [0m [ROUTER] oauth router added
+[90m13:34:55.518[0m [32mINFO    [0m [35mbackend.main        [0m [ROUTER] automation router added
+[90m13:34:55.521[0m [32mINFO    [0m [35mbackend.main        [0m [ROUTER] integrations router added
+[90m13:34:55.535[0m [32mINFO    [0m [35mbackend.main        [0m ============================================================
+[90m13:34:55.536[0m [32mINFO    [0m [35mbackend.main        [0m   SUPER MANAGER - Starting up...
+[90m13:34:55.536[0m [32mINFO    [0m [35mbackend.main        [0m ============================================================
+[DB] ⚠️ Supabase not configured. Set SUPABASE_URL and SUPABASE_KEY
+[DB] System will run in memory-only mode
+[90m13:34:55.536[0m [32mINFO    [0m [35mbackend.main        [0m [DB] ✅ Database initialized
+[90m13:34:55.536[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] Initializing providers...
+[90m13:34:57.940[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] openrouter: ❌
+[90m13:34:57.940[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] groq: ❌
+[90m13:34:57.940[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] sambanova: ❌
+[90m13:34:57.951[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] zuki: ❌
+[90m13:34:58.352[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] ollama: ✅
+[90m13:34:58.466[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] openai: ❌
+[90m13:34:58.710[0m [32mINFO    [0m [35mopenai._base_client [0m Retrying request to /chat/completions in 0.400975 seconds
+[90m13:34:59.438[0m [32mINFO    [0m [35mopenai._base_client [0m Retrying request to /chat/completions in 0.908913 seconds
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] gemini: ❌
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.core.ai_providers.router[0m [AI_ROUTER] Available providers: ['ollama']
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.main        [0m [AI] ✅ AI Router initialized. Available: ['ollama']
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.main        [0m [AGENT] ✅ Agent Manager initialized
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.main        [0m [WS] ✅ WebSocket Manager initialized
+[SCHEDULER] Scheduler not available
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.main        [0m [SCHEDULER] ✅ Job scheduler started
+[90m13:35:00.485[0m [32mINFO    [0m [35mperformance         [0m startup completed in 4949.96ms
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.main        [0m ============================================================
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.main        [0m   SUPER MANAGER - Ready in 4950ms!
+[90m13:35:00.485[0m [32mINFO    [0m [35mbackend.main        [0m ============================================================
+[90m13:35:20.406[0m [32mINFO    [0m [35mbackend.core.security[0m [05be6aea-842a-4bc3-b524-1e918adb42d6] → GET /health from 127.0.0.1
+[90m13:35:20.407[0m [33mWARNING [0m [35mbackend.core.security[0m [05be6aea-842a-4bc3-b524-1e918adb42d6] ← 404 (0.84ms)
+[90m13:35:27.240[0m [32mINFO    [0m [35mbackend.core.security[0m [285b88ae-7617-415d-92b0-df0e65763877] → GET /api/identity/status/e2e_user from 127.0.0.1
+[IDENTITY INIT ERROR] Supabase failed: No module named 'supabase'
+[90m13:35:27.290[0m [32mINFO    [0m [35mbackend.core.security[0m [285b88ae-7617-415d-92b0-df0e65763877] ← 200 (50.65ms)
+[90m13:35:35.805[0m [32mINFO    [0m [35mbackend.core.security[0m [809601b0-4ab3-46c8-8c81-5ac585863a7c] → POST /api/v2/tasks from 127.0.0.1
+[TASK API] Error creating task: 'topic'
+[90m13:35:35.813[0m [33mWARNING [0m [35mbackend.core.security[0m [809601b0-4ab3-46c8-8c81-5ac585863a7c] ← 500 (8.22ms)
+[90m13:35:43.165[0m [32mINFO    [0m [35mbackend.core.security[0m [e1dbecee-a5bf-4feb-9a36-58c8d57b1a79] → POST /api/v2/tasks from 127.0.0.1
+[90m13:35:43.172[0m [32mINFO    [0m [35mbackend.core.security[0m [e1dbecee-a5bf-4feb-9a36-58c8d57b1a79] ← 200 (6.61ms)
+[90m13:49:48.059[0m [32mINFO    [0m [35mbackend.core.security[0m [4e933d5b-2ce5-4c5c-80a9-acb785f88919] → POST /api/chat from 127.0.0.1
+[90m13:49:48.100[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: e907c89a..., user: test_user_real, length: 73
+[90m13:49:48.119[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:49:51.613[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:49:55.569[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): You have a total of 1350 apples in the 15 boxes.
+[90m13:49:55.574[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: e907c89a..., status: None, time: 7471ms
+[90m13:49:55.582[0m [32mINFO    [0m [35mbackend.core.security[0m [4e933d5b-2ce5-4c5c-80a9-acb785f88919] ← 200 (7524.34ms)
+[90m13:49:55.590[0m [32mINFO    [0m [35mbackend.core.security[0m [b2c23e84-20b5-42e2-9315-f951ffaf82f7] → POST /api/chat from 127.0.0.1
+[90m13:49:55.618[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: b8426128..., user: test_user_real, length: 61
+[90m13:49:55.618[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:00.197[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:04.090[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: b8426128..., status: None, time: 8472ms
+[90m13:50:04.090[0m [32mINFO    [0m [35mbackend.core.security[0m [b2c23e84-20b5-42e2-9315-f951ffaf82f7] ← 200 (8500.26ms)
+[90m13:50:04.095[0m [32mINFO    [0m [35mbackend.core.security[0m [6fd49d48-481d-4a03-8398-c5842c496632] → POST /api/chat from 127.0.0.1
+[90m13:50:04.097[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: d87dbe3b..., user: test_user_real, length: 88
+[90m13:50:04.098[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:08.147[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): ```python
+import re
+
+text = "John is 25, Mary is 32, and Bob who is 40 went to the store."
+pattern = r"([A-Za-z]+)\s+is\s+(\d+)"
+matches = re.findall(pattern, text)
+
+print(matches)
+```
+[90m13:50:08.147[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: d87dbe3b..., status: None, time: 4051ms
+[90m13:50:08.148[0m [32mINFO    [0m [35mbackend.core.security[0m [6fd49d48-481d-4a03-8398-c5842c496632] ← 200 (4052.44ms)
+[90m13:50:08.152[0m [32mINFO    [0m [35mbackend.core.security[0m [546b1eda-b2a0-4473-a9e5-a5575bf0ab5b] → POST /api/chat from 127.0.0.1
+[90m13:50:08.154[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: b4cbffa5..., user: test_user_real, length: 237
+[90m13:50:08.154[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:12.190[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): The Industrial Revolution was a period of transition to new manufacturing processes in Great Britain, continental Europe, and the United States from around 1760 to 1820-1840.
+[90m13:50:12.191[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: b4cbffa5..., status: None, time: 4038ms
+[90m13:50:12.192[0m [32mINFO    [0m [35mbackend.core.security[0m [546b1eda-b2a0-4473-a9e5-a5575bf0ab5b] ← 200 (4039.33ms)
+[90m13:50:12.195[0m [32mINFO    [0m [35mbackend.core.security[0m [a9f90da6-68bd-4efa-89b6-33e7e9a63fe4] → POST /api/chat from 127.0.0.1
+[90m13:50:12.197[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: 5bc4a8a8..., user: test_user_real, length: 94
+[90m13:50:12.197[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:16.055[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:19.704[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: 5bc4a8a8..., status: None, time: 7507ms
+[90m13:50:19.705[0m [32mINFO    [0m [35mbackend.core.security[0m [a9f90da6-68bd-4efa-89b6-33e7e9a63fe4] ← 200 (7510.33ms)
+[90m13:50:19.708[0m [32mINFO    [0m [35mbackend.core.security[0m [6784394b-eead-49eb-a89e-d8f75bb6d433] → POST /api/chat from 127.0.0.1
+[90m13:50:19.720[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: fe5e78aa..., user: test_user_real, length: 66
+[90m13:50:19.721[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:23.221[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): Tokyo
+[90m13:50:23.221[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: fe5e78aa..., status: None, time: 3501ms
+[90m13:50:23.221[0m [32mINFO    [0m [35mbackend.core.security[0m [6784394b-eead-49eb-a89e-d8f75bb6d433] ← 200 (3513.16ms)
+[90m13:50:23.226[0m [32mINFO    [0m [35mbackend.core.security[0m [db411f3c-4833-4f38-857e-caf1e7260851] → POST /api/chat from 127.0.0.1
+[90m13:50:23.227[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: 40fddc99..., user: test_user_real, length: 71
+[90m13:50:23.228[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:25.130[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): L'agent IA fonctionne parfaitement.
+[90m13:50:25.130[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: 40fddc99..., status: None, time: 1903ms
+[90m13:50:25.131[0m [32mINFO    [0m [35mbackend.core.security[0m [db411f3c-4833-4f38-857e-caf1e7260851] ← 200 (1904.32ms)
+[90m13:50:25.134[0m [32mINFO    [0m [35mbackend.core.security[0m [c16aac87-a483-4658-b54a-b3bffd1eaf17] → POST /api/chat from 127.0.0.1
+[90m13:50:25.136[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: 6fb8e0e2..., user: test_user_real, length: 62
+[90m13:50:25.136[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:27.697[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): I'm unable to directly access or modify your Google Calendar. However, I can guide you on how to do it yourself. Would you like instructions on how to schedule a meeting on Google Calendar?
+[90m13:50:27.697[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: 6fb8e0e2..., status: None, time: 2562ms
+[90m13:50:27.698[0m [32mINFO    [0m [35mbackend.core.security[0m [c16aac87-a483-4658-b54a-b3bffd1eaf17] ← 200 (2563.59ms)
+[90m13:50:27.701[0m [32mINFO    [0m [35mbackend.core.security[0m [c4cb817f-f2c7-42ff-8cd2-771d49601cc5] → POST /api/chat from 127.0.0.1
+[90m13:50:27.702[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: 5346eabf..., user: test_user_real, length: 65
+[90m13:50:27.702[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:31.580[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): You haven't mentioned your favorite programming language in our conversation yet. If you have a favorite programming language, please let me know!
+[90m13:50:31.580[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: 5346eabf..., status: None, time: 3878ms
+[90m13:50:31.580[0m [32mINFO    [0m [35mbackend.core.security[0m [c4cb817f-f2c7-42ff-8cd2-771d49601cc5] ← 200 (3879.62ms)
+[90m13:50:31.583[0m [32mINFO    [0m [35mbackend.core.security[0m [ffd35134-478a-4601-a6ed-38d6be30eb42] → POST /api/chat from 127.0.0.1
+[90m13:50:31.586[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: 35116ebd..., user: test_user_real, length: 49
+[90m13:50:31.592[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:50:35.484[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): Sunlight scattering in Earth's atmosphere makes the sky look blue most of the time.
+[90m13:50:35.484[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: 35116ebd..., status: None, time: 3899ms
+[90m13:50:35.484[0m [32mINFO    [0m [35mbackend.core.security[0m [ffd35134-478a-4601-a6ed-38d6be30eb42] ← 200 (3901.46ms)
+[90m13:51:36.550[0m [32mINFO    [0m [35mbackend.core.security[0m [c7d6571f-78d0-4bff-b744-024fd23d4d1d] → POST /api/chat from 127.0.0.1
+[90m13:51:36.570[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 73
+[90m13:51:36.572[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:51:41.120[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 4546ms
+[90m13:51:41.132[0m [32mINFO    [0m [35mbackend.core.security[0m [c7d6571f-78d0-4bff-b744-024fd23d4d1d] ← 200 (4582.67ms)
+[90m13:51:41.148[0m [32mINFO    [0m [35mbackend.core.security[0m [ef658e70-b1a8-4961-a772-55e33ef2fa3e] → POST /api/chat from 127.0.0.1
+[90m13:51:41.151[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 55
+[90m13:51:41.151[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:51:45.446[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:51:49.973[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:51:53.647[0m [32mINFO    [0m [35mbackend.core.strategy_store[0m Strategy saved: remember_that_favorite (keywords: ['remember', 'that', 'favorite', 'framework', 'absolute', 'svelte.'])
+[90m13:51:53.647[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 12497ms
+[90m13:51:53.648[0m [32mINFO    [0m [35mbackend.core.security[0m [ef658e70-b1a8-4961-a772-55e33ef2fa3e] ← 200 (12499.44ms)
+[90m13:51:53.652[0m [32mINFO    [0m [35mbackend.core.security[0m [37f290a7-cf4e-4ddf-a336-06be67a06007] → POST /api/chat from 127.0.0.1
+[90m13:51:53.654[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 51
+[90m13:51:53.654[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:51:56.080[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): Your favorite framework is Svelte.
+[90m13:51:56.081[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 2427ms
+[90m13:51:56.081[0m [32mINFO    [0m [35mbackend.core.security[0m [37f290a7-cf4e-4ddf-a336-06be67a06007] ← 200 (2429.26ms)
+[90m13:51:56.087[0m [32mINFO    [0m [35mbackend.core.security[0m [ead08c47-ecc0-47bc-a97a-aedad992ab54] → POST /api/chat from 127.0.0.1
+[90m13:51:56.109[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 66
+[90m13:51:56.109[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:04.330[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:09.101[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): The task 'Read the documentation for SvelteKit' has been successfully added to your to-do list.
+[90m13:52:09.101[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 12992ms
+[90m13:52:09.101[0m [32mINFO    [0m [35mbackend.core.security[0m [ead08c47-ecc0-47bc-a97a-aedad992ab54] ← 200 (13014.83ms)
+[90m13:52:09.107[0m [32mINFO    [0m [35mbackend.core.security[0m [92328454-1999-4818-ac35-ef3719e14efa] → POST /api/chat from 127.0.0.1
+[90m13:52:09.108[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 166
+[90m13:52:09.109[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:11.701[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): - John: 25
+- Mary: 32
+- Bob: 40
+[90m13:52:11.701[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 2593ms
+[90m13:52:11.701[0m [32mINFO    [0m [35mbackend.core.security[0m [92328454-1999-4818-ac35-ef3719e14efa] ← 200 (2594.41ms)
+[90m13:52:11.705[0m [32mINFO    [0m [35mbackend.core.security[0m [7b5ba989-771e-489d-98a7-35179c75ae3f] → POST /api/chat from 127.0.0.1
+[90m13:52:11.706[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 240
+[90m13:52:11.706[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:14.753[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): Industrial Revolution manufacturing transition
+[90m13:52:14.753[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 3048ms
+[90m13:52:14.754[0m [32mINFO    [0m [35mbackend.core.security[0m [7b5ba989-771e-489d-98a7-35179c75ae3f] ← 200 (3048.93ms)
+[90m13:52:14.757[0m [32mINFO    [0m [35mbackend.core.security[0m [c4804a83-5a6b-41b7-a92b-24cf4cbe5c12] → POST /api/chat from 127.0.0.1
+[90m13:52:14.759[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 58
+[90m13:52:14.759[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:18.080[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): Le système est opérationnel.
+[90m13:52:18.081[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 3322ms
+[90m13:52:18.081[0m [32mINFO    [0m [35mbackend.core.security[0m [c4804a83-5a6b-41b7-a92b-24cf4cbe5c12] ← 200 (3324.38ms)
+[90m13:52:18.086[0m [32mINFO    [0m [35mbackend.core.security[0m [c4de80a6-2c10-40d5-8614-3ee80133e5cb] → POST /api/chat from 127.0.0.1
+[90m13:52:18.088[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 119
+[90m13:52:18.088[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:21.300[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:24.118[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): The array sorted in strictly descending order is: [10, 9, 7, 4, 2].
+[90m13:52:24.118[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 6031ms
+[90m13:52:24.120[0m [32mINFO    [0m [35mbackend.core.security[0m [c4de80a6-2c10-40d5-8614-3ee80133e5cb] ← 200 (6033.83ms)
+[90m13:52:24.123[0m [32mINFO    [0m [35mbackend.core.security[0m [2765505c-79ea-4bf1-bb94-a9ba8c5cd86b] → POST /api/chat from 127.0.0.1
+[90m13:52:24.125[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 99
+[90m13:52:24.125[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:28.037[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): I'm unable to directly interact with file systems or execute real-time code that accesses or manipulates files on a physical device or server. My environment is designed for information retrieval, pro
+[90m13:52:28.037[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 3913ms
+[90m13:52:28.037[0m [32mINFO    [0m [35mbackend.core.security[0m [2765505c-79ea-4bf1-bb94-a9ba8c5cd86b] ← 200 (3914.52ms)
+[90m13:52:28.041[0m [32mINFO    [0m [35mbackend.core.security[0m [43e71ec7-d454-417f-bf49-0daab968ac44] → POST /api/chat from 127.0.0.1
+[90m13:52:28.043[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_ses..., user: real_e2e_user, length: 48
+[90m13:52:28.043[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:52:30.516[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): Light scattering in atmosphere causes sky's blue appearance.
+[90m13:52:30.516[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_ses..., status: None, time: 2473ms
+[90m13:52:30.516[0m [32mINFO    [0m [35mbackend.core.security[0m [43e71ec7-d454-417f-bf49-0daab968ac44] ← 200 (2475.39ms)
+[90m13:55:37.788[0m [32mINFO    [0m [35mbackend.core.security[0m [59f28c25-2743-4fde-9afa-d1c57cc28627] → POST /api/chat from 127.0.0.1
+[90m13:55:37.809[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: agent_se..., user: real_e2e_user, length: 117
+[90m13:55:37.811[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:55:47.022[0m [33mWARNING [0m [35mbackend.core.firebase_config[0m firebase-admin not installed. Run: pip install firebase-admin
+[90m13:55:47.045[0m [31mERROR   [0m [35mbackend.core.firebase_config[0m Firebase Admin SDK not available
+[90m13:55:47.048[0m [32mINFO    [0m [35mbackend.core.identity_email_service[0m No user credentials for default, using env OAuth
+[90m13:55:47.325[0m [33mWARNING [0m [35mbackend.core.identity_email_service[0m OAuth failed, trying SMTP: ('invalid_grant: Bad Request', {'error': 'invalid_grant', 'error_description': 'Bad Request'})
+[90m13:55:51.121[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:55:55.228[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: agent_se..., status: None, time: 17415ms
+[90m13:55:55.235[0m [32mINFO    [0m [35mbackend.core.security[0m [59f28c25-2743-4fde-9afa-d1c57cc28627] ← 200 (17448.17ms)
+[90m13:55:57.255[0m [32mINFO    [0m [35mbackend.core.security[0m [b2f70e8e-f28c-4fae-aba7-b27de64558d5] → POST /api/chat from 127.0.0.1
+[90m13:55:57.257[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: agent_se..., user: real_e2e_user, length: 41
+[90m13:55:57.257[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:56:06.048[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): I'm unable to directly send emails or perform actions that require real-world effects such as sending emails, making phone calls, or accessing personal accounts without explicit user action or verific
+[90m13:56:06.049[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: agent_se..., status: None, time: 8792ms
+[90m13:56:06.049[0m [32mINFO    [0m [35mbackend.core.security[0m [b2f70e8e-f28c-4fae-aba7-b27de64558d5] ← 200 (8793.64ms)
+[90m13:56:08.061[0m [32mINFO    [0m [35mbackend.core.security[0m [a28ad3c4-7a8e-4ae0-9d26-0c4dde39f734] → POST /api/chat from 127.0.0.1
+[90m13:56:08.063[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: agent_se..., user: real_e2e_user, length: 81
+[90m13:56:08.063[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:56:16.880[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:56:22.109[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: agent_se..., status: None, time: 14046ms
+[90m13:56:22.109[0m [32mINFO    [0m [35mbackend.core.security[0m [a28ad3c4-7a8e-4ae0-9d26-0c4dde39f734] ← 200 (14047.94ms)
+[90m13:56:24.116[0m [32mINFO    [0m [35mbackend.core.security[0m [54b771c0-9bc5-4683-83e5-8662e633c997] → POST /api/chat from 127.0.0.1
+[90m13:56:24.117[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: agent_se..., user: real_e2e_user, length: 36
+[90m13:56:24.118[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:56:30.121[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): I'm unable to directly create or manage meetings in real-time platforms or access personal calendars without explicit integration or permissions. However, I can guide you on how to set up a meeting us
+[90m13:56:30.121[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: agent_se..., status: None, time: 6004ms
+[90m13:56:30.122[0m [32mINFO    [0m [35mbackend.core.security[0m [54b771c0-9bc5-4683-83e5-8662e633c997] ← 200 (6005.55ms)
+[90m13:56:32.129[0m [32mINFO    [0m [35mbackend.core.security[0m [52731020-27ea-4157-9a1a-12ab94dc51e6] → POST /api/chat from 127.0.0.1
+[90m13:56:32.137[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: agent_se..., user: real_e2e_user, length: 71
+[90m13:56:32.137[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:56:36.400[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:56:38.508[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): Your reminder to check the deployment logs tomorrow at 9 AM has been successfully set. If there's anything more you need help with, just let me know!
+[90m13:56:38.508[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: agent_se..., status: None, time: 6372ms
+[90m13:56:38.509[0m [32mINFO    [0m [35mbackend.core.security[0m [52731020-27ea-4157-9a1a-12ab94dc51e6] ← 200 (6379.97ms)
+[90m13:56:40.519[0m [32mINFO    [0m [35mbackend.core.security[0m [a29d40e6-8129-4513-9f43-e0cfdfb70b55] → POST /api/chat from 127.0.0.1
+[90m13:56:40.521[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: agent_se..., user: real_e2e_user, length: 32
+[90m13:56:40.521[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m13:56:45.176[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): I'm unable to directly set reminders in real-world applications or devices from this platform. However, I recommend setting this reminder through your preferred calendar or reminder app, such as Googl
+[90m13:56:45.177[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: agent_se..., status: None, time: 4656ms
+[90m13:56:45.177[0m [32mINFO    [0m [35mbackend.core.security[0m [a29d40e6-8129-4513-9f43-e0cfdfb70b55] ← 200 (4657.53ms)
+[90m13:59:50.010[0m [32mINFO    [0m [35mbackend.core.security[0m [1db0c3be-7b3a-40bc-9011-af819e7de58f] → POST /api/chat from 127.0.0.1
+[90m13:59:50.048[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: 7098c2dc..., user: user_j5rtprt1qrr, length: 50
+[90m13:59:50.055[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:00:23.726[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:00:29.284[0m [32mINFO    [0m [35mbackend.core.security[0m [58e62ac9-fabb-4f28-8fd2-d6adf9553916] → GET /api/v2/tasks/notifications from 127.0.0.1
+[90m14:00:29.294[0m [32mINFO    [0m [35mbackend.core.security[0m [f88d31e9-9722-41f6-afee-50c19d85cc9b] → GET /api/v2/tasks from 127.0.0.1
+[90m14:00:29.317[0m [33mWARNING [0m [35mbackend.core.security[0m [58e62ac9-fabb-4f28-8fd2-d6adf9553916] ← 404 (33.21ms)
+[90m14:00:29.317[0m [33mWARNING [0m [35mbackend.core.security[0m [f88d31e9-9722-41f6-afee-50c19d85cc9b] ← 422 (22.63ms)
+[90m14:00:29.324[0m [32mINFO    [0m [35mbackend.core.security[0m [be37b239-6adb-4c64-bbda-41509f49a2e8] → GET /api/v2/tasks/notifications from 127.0.0.1
+[90m14:00:29.325[0m [32mINFO    [0m [35mbackend.core.security[0m [17717079-091f-4a92-9bbd-056e0c9da78f] → GET /api/v2/tasks from 127.0.0.1
+[90m14:00:29.326[0m [33mWARNING [0m [35mbackend.core.security[0m [be37b239-6adb-4c64-bbda-41509f49a2e8] ← 404 (1.39ms)
+[90m14:00:29.326[0m [33mWARNING [0m [35mbackend.core.security[0m [17717079-091f-4a92-9bbd-056e0c9da78f] ← 422 (0.85ms)
+[90m14:00:32.685[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:00:37.152[0m [32mINFO    [0m [35mbackend.core.strategy_store[0m Strategy saved: generate_image_ant (keywords: ['generate', 'image', 'ant', 'trying', 'take', 'cokkies'])
+[90m14:00:37.157[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: 7098c2dc..., status: None, time: 47105ms
+[90m14:00:37.163[0m [32mINFO    [0m [35mbackend.core.security[0m [1db0c3be-7b3a-40bc-9011-af819e7de58f] ← 200 (47154.27ms)
+[90m14:15:18.929[0m [32mINFO    [0m [35mbackend.core.security[0m [36ea70f3-ee2d-4c56-a91e-f4944e1edd99] → POST /api/chat from 127.0.0.1
+[90m14:15:18.976[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_zoo..., user: test_user_no_zoom, length: 68
+[90m14:15:18.992[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:15:24.061[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:15:28.882[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:15:34.716[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): Your meeting has been successfully created with the following details:
+
+- **Topic:** Meeting
+- **Platform:** Jitsi Meet
+- **Scheduled:** March 23, 2026, at 03:00 PM
+- **Join URL:** [https://meet.jit.s
+[90m14:15:34.721[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_zoo..., status: None, time: 15742ms
+[90m14:15:34.740[0m [32mINFO    [0m [35mbackend.core.security[0m [36ea70f3-ee2d-4c56-a91e-f4944e1edd99] ← 200 (15813.14ms)
+[90m14:19:01.253[0m [32mINFO    [0m [35mbackend.core.security[0m [ce93e8ea-e361-4d56-b449-ccf305ffad18] → POST /api/chat from 127.0.0.1
+[90m14:19:01.307[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat request - session: test_zoo..., user: test_user_no_zoom, length: 68
+[90m14:19:01.319[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:19:06.412[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:19:11.503[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [_call_llm] use_openai=True, use_openrouter=False
+[90m14:19:15.994[0m [32mINFO    [0m [35mbackend.core.adaptive_agent[0m [LLM Response] No tags found. Raw response (first 200 chars): The meeting has been successfully created with the following details:
+
+- **Topic:** Scheduled Meeting
+- **Platform:** Jitsi Meet
+- **Scheduled:** March 23, 2026, at 03:00 PM
+- **Join URL:** [https://m
+[90m14:19:16.000[0m [32mINFO    [0m [35mbackend.routes.api  [0m Chat response - session: test_zoo..., status: None, time: 14688ms
+[90m14:19:16.015[0m [32mINFO    [0m [35mbackend.core.security[0m [ce93e8ea-e361-4d56-b449-ccf305ffad18] ← 200 (14763.21ms)

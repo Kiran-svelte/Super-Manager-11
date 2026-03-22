@@ -98,6 +98,53 @@ except Exception as e:
     identity = None
     logger.error(f"[IMPORT] ❌ identity failed: {e}")
 
+try:
+    from .routes import oauth
+    OAUTH_AVAILABLE = True
+    logger.info("[IMPORT] ✅ oauth loaded")
+except Exception as e:
+    OAUTH_AVAILABLE = False
+    oauth = None
+    logger.error(f"[IMPORT] ❌ oauth failed: {e}")
+
+try:
+    from .routes import automation
+    AUTOMATION_AVAILABLE = True
+    logger.info("[IMPORT] ✅ automation loaded")
+except Exception as e:
+    AUTOMATION_AVAILABLE = False
+    automation = None
+    logger.error(f"[IMPORT] ❌ automation failed: {e}")
+
+try:
+    from .routes import integrations
+    INTEGRATIONS_AVAILABLE = True
+    logger.info("[IMPORT] ✅ integrations loaded")
+except Exception as e:
+    INTEGRATIONS_AVAILABLE = False
+    integrations = None
+    logger.error(f"[IMPORT] ❌ integrations failed: {e}")
+
+# Messaging webhooks (Telegram, WhatsApp, Voice)
+try:
+    from .routes import messaging
+    MESSAGING_AVAILABLE = True
+    logger.info("[IMPORT] ✅ messaging loaded")
+except Exception as e:
+    MESSAGING_AVAILABLE = False
+    messaging = None
+    logger.error(f"[IMPORT] ❌ messaging failed: {e}")
+
+# Teaching mode (workflow learning)
+try:
+    from .routes import teaching
+    TEACHING_AVAILABLE = True
+    logger.info("[IMPORT] ✅ teaching loaded")
+except Exception as e:
+    TEACHING_AVAILABLE = False
+    teaching = None
+    logger.error(f"[IMPORT] ❌ teaching failed: {e}")
+
 from .core.agent import AgentManager
 from .core.ai_providers import get_ai_router
 from .core.realtime import get_connection_manager, websocket_endpoint
@@ -259,7 +306,8 @@ if _frontend_url and _frontend_url != "*":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=r"https://(.*\.vercel\.app|.*\.pages\.dev)",
+    # Allow preview deploys + any local Vite port during development
+    allow_origin_regex=r"(https://(.*\.vercel\.app|.*\.pages\.dev)|http://localhost:\d+)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -282,6 +330,26 @@ if TASKS_V2_AVAILABLE and tasks_v2:
 if IDENTITY_AVAILABLE and identity:
     app.include_router(identity.router)  # /api/identity/* - AI Identity Management
     logger.info("[ROUTER] identity router added")
+
+if OAUTH_AVAILABLE and oauth:
+    app.include_router(oauth.router)  # /api/oauth/* - OAuth Flow Management
+    logger.info("[ROUTER] oauth router added")
+
+if AUTOMATION_AVAILABLE and automation:
+    app.include_router(automation.router)  # /api/automation/* - Automation Flows
+    logger.info("[ROUTER] automation router added")
+
+if INTEGRATIONS_AVAILABLE and integrations:
+    app.include_router(integrations.router)  # /api/integrations/* - Integration Manager
+    logger.info("[ROUTER] integrations router added")
+
+if MESSAGING_AVAILABLE and messaging:
+    app.include_router(messaging.router)  # /webhook/* - Telegram, WhatsApp, Voice
+    logger.info("[ROUTER] messaging router added")
+
+if TEACHING_AVAILABLE and teaching:
+    app.include_router(teaching.router)  # /api/teach/* - Workflow Learning
+    logger.info("[ROUTER] teaching router added")
 
 # Legacy routes (only if available)
 if LEGACY_ROUTES_AVAILABLE:
@@ -347,26 +415,152 @@ async def health_check():
         "components": component_health
     }
 
+
+@app.get("/api/health/ready")
+async def readiness_check():
+    """
+    Readiness probe endpoint.
+    
+    Returns 200 if the service is ready to accept traffic.
+    Returns 503 if critical dependencies are unavailable.
+    """
+    monitor = getattr(app.state, 'health_monitor', None)
+    ai_router = getattr(app.state, 'ai_router', None)
+    
+    # Check critical components
+    checks = {
+        "ai_router": ai_router is not None and len(ai_router.get_available_providers()) > 0,
+        "websocket_manager": hasattr(app.state, 'ws_manager'),
+        "agent_manager": hasattr(app.state, 'agent_manager'),
+    }
+    
+    # Database is optional (can run in memory mode)
+    if monitor:
+        component_health = monitor.get_overall_health()
+        if isinstance(component_health, dict):
+            checks["database"] = component_health.get("components", {}).get("database", {}).get("healthy", True)
+    
+    all_ready = all(checks.values())
+    
+    if not all_ready:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=503,
+            content={
+                "ready": False,
+                "checks": checks,
+                "message": "Service not ready"
+            }
+        )
+    
+    return {
+        "ready": True,
+        "checks": checks,
+        "message": "Service is ready"
+    }
+
+
+@app.get("/api/health/metrics")
+async def health_metrics():
+    """
+    Prometheus-compatible metrics endpoint.
+    
+    Returns detailed performance metrics for monitoring.
+    """
+    tracer = getattr(app.state, 'request_tracer', None)
+    
+    metrics = {
+        "cache": response_cache.get_stats() if response_cache else {},
+        "rate_limiter": api_rate_limiter.get_stats() if api_rate_limiter else {},
+        "circuit_breakers": {
+            "ai": {
+                "state": ai_circuit_breaker.state.name,
+                "failures": ai_circuit_breaker._failure_count
+            } if ai_circuit_breaker else {},
+            "database": {
+                "state": db_circuit_breaker.state.name,
+                "failures": db_circuit_breaker._failure_count
+            } if db_circuit_breaker else {},
+            "email": {
+                "state": email_circuit_breaker.state.name,
+                "failures": email_circuit_breaker._failure_count
+            } if email_circuit_breaker else {}
+        },
+        "request_traces": tracer.get_stats() if tracer else {}
+    }
+    
+    return metrics
+
 @app.get("/api/status")
 async def system_status():
-    """Detailed system status"""
+    """Detailed system status with setup requirements"""
+    import os
     ai_router = getattr(app.state, 'ai_router', None)
     monitor = getattr(app.state, 'health_monitor', None)
+    
+    # Check OAuth setup
+    gmail_configured = bool(os.getenv("GMAIL_CLIENT_ID") and os.getenv("GMAIL_CLIENT_SECRET"))
+    gmail_token_valid = bool(os.getenv("GMAIL_REFRESH_TOKEN"))
+    
+    # Check Firebase
+    firebase_configured = bool(os.getenv("FIREBASE_PROJECT_ID") or os.getenv("FIREBASE_CREDENTIALS_PATH"))
+    
+    # Check AI providers
+    ai_configured = bool(os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY"))
+    
+    # Get AI provider status
+    ai_providers = ai_router.get_available_providers() if ai_router else []
+    
+    # Setup requirements
+    setup_requirements = []
+    if not ai_configured:
+        setup_requirements.append({
+            "item": "AI Provider",
+            "status": "missing",
+            "action": "Add OPENAI_API_KEY or GROQ_API_KEY to .env"
+        })
+    if not gmail_configured:
+        setup_requirements.append({
+            "item": "Gmail OAuth",
+            "status": "missing", 
+            "action": "Add GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET to .env"
+        })
+    elif not gmail_token_valid:
+        setup_requirements.append({
+            "item": "Gmail Token",
+            "status": "expired",
+            "action": "Visit /api/oauth/authorize/gmail?user_id=YOUR_USER_ID to authorize Gmail"
+        })
     
     return {
         "status": "operational",
         "version": "2.0.0",
-        "ai": ai_router.get_status() if ai_router else {"error": "AI Router not initialized"},
+        "ai": {
+            "providers": ai_providers,
+            "configured": ai_configured,
+            "primary": ai_providers[0] if ai_providers else None,
+        },
+        "services": {
+            "oauth": OAUTH_AVAILABLE,
+            "automation": AUTOMATION_AVAILABLE,
+            "identity": IDENTITY_AVAILABLE,
+            "firebase": firebase_configured,
+        },
         "features": {
-            "dynamic_workflows": True,
+            "email_sending": gmail_configured and gmail_token_valid,
+            "meeting_booking": AUTOMATION_AVAILABLE,
+            "service_signup": AUTOMATION_AVAILABLE,
             "real_time_updates": True,
-            "multi_provider_ai": True,
+            "multi_provider_ai": len(ai_providers) > 1,
             "plugin_system": True,
-            "circuit_breakers": True,
-            "response_caching": True,
-            "rate_limiting": True,
-            "security_headers": True,
             "structured_logging": True
+        },
+        "setup_required": setup_requirements,
+        "quick_start": {
+            "1_authorize_gmail": "/api/oauth/authorize/gmail?user_id=default",
+            "2_check_status": "/api/oauth/token/gmail?user_id=default",
+            "3_test_email": "/api/automation/quick/email?user_id=default&to=test@example.com&subject=Test&body=Hello",
+            "4_chat": "/api/chat (POST with message)"
         },
         "health": monitor.get_overall_health() if monitor else {}
     }

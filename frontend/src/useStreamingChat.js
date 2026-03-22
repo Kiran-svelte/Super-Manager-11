@@ -5,8 +5,9 @@
  * Just like ChatGPT - instant responses, token by token!
  */
 import { useState, useCallback, useRef } from 'react';
+import { apiUrl, getApiBase } from './lib/apiBase';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com/api';
+const API_BASE = apiUrl('/api');
 
 /**
  * Hook for streaming chat with real-time token updates
@@ -51,6 +52,7 @@ export function useStreamingChat() {
         }),
         signal: abortControllerRef.current.signal
       });
+
       
       if (!response.ok) throw new Error('Failed to connect');
       
@@ -234,7 +236,9 @@ export function useWebSocketChat() {
     const sid = sessionId || crypto.randomUUID();
     sessionIdRef.current = sid;
     
-    const wsUrl = `${API_BASE.replace('http', 'ws')}/stream/ws/${sid}`;
+    const apiBase = getApiBase();
+    const wsOrigin = (apiBase || window.location.origin).replace(/^http/, 'ws');
+    const wsUrl = `${wsOrigin}/api/stream/ws/${sid}`;
     wsRef.current = new WebSocket(wsUrl);
     
     wsRef.current.onopen = () => {

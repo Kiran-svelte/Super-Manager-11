@@ -1,4 +1,15 @@
-  File "<string>", line 1
-    import
-          ^
-SyntaxError: invalid syntax
+INFO:     Started server process [6896]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8010 (Press CTRL+C to quit)
+Traceback (most recent call last):
+  File "D:\GOOGLE PROJECT\backend\routes\tasks_v2.py", line 82, in create_task
+    task = await orchestrator.create_task(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "D:\GOOGLE PROJECT\backend\agent\orchestrator.py", line 264, in create_task
+    title = template["title_template"].format(**params) if "title_template" in template else params.get("title", "Task")
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'topic'

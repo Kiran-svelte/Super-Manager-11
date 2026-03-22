@@ -9,9 +9,8 @@ import {
   X,
   RefreshCw
 } from 'lucide-react'
+import { apiUrl } from '../lib/apiBase'
 import './TaskPanel.css'
-
-const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
 
 /**
  * TaskPanel - Shows real-time task progress
@@ -22,7 +21,7 @@ const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.
  * - Real-time updates via polling (WebSocket can be added)
  * - Notifications
  */
-export default function TaskPanel({ userEmail = 'default@user.com', refreshTrigger = 0 }) {
+export default function TaskPanel({ userId, refreshTrigger = 0 }) {
   const [tasks, setTasks] = useState([])
   const [notifications, setNotifications] = useState([])
   const [selectedTask, setSelectedTask] = useState(null)
@@ -31,17 +30,18 @@ export default function TaskPanel({ userEmail = 'default@user.com', refreshTrigg
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
+    if (!userId) return;
     try {
-      const res = await fetch(`${API}/api/v2/tasks?user_email=${userEmail}`)
+      const res = await fetch(apiUrl(`/api/v2/tasks?user_id=${userId}`))
       if (res.ok) {
         const data = await res.json()
-        setTasks(data)
+        setTasks(data || [])
         setLastUpdate(new Date())
       }
     } catch (err) {
       console.error('Failed to fetch tasks:', err)
     }
-  }, [userEmail])
+  }, [userId])
 
   // Refresh when refreshTrigger changes (task confirmed)
   useEffect(() => {
@@ -53,16 +53,17 @@ export default function TaskPanel({ userEmail = 'default@user.com', refreshTrigg
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
+    if (!userId) return;
     try {
-      const res = await fetch(`${API}/api/v2/tasks/notifications?user_email=${userEmail}&unread_only=true`)
+      const res = await fetch(apiUrl(`/api/v2/tasks/notifications?user_id=${userId}&unread_only=true`))
       if (res.ok) {
         const data = await res.json()
-        setNotifications(data)
+        setNotifications(data || [])
       }
     } catch (err) {
       console.error('Failed to fetch notifications:', err)
     }
-  }, [userEmail])
+  }, [userId])
 
   // Initial load and polling
   useEffect(() => {

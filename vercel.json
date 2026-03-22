@@ -11,11 +11,11 @@
   ],
   "routes": [
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/frontend/$1"
+      "dest": "/index.html"
     }
-  ],
-  "env": {
-    "VITE_API_URL": "https://super-manager-api.onrender.com"
-  }
+  ]
 }

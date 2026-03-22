@@ -1,18 +1,31 @@
 /**
  * Super Manager - Clean, User-Friendly Chat Interface
  * With real-time SSE streaming and agent step visualization
+ * 
+ * Integrated Components:
+ * - TaskPanel: Shows active task progress
+ * - IntegrationsHub: Manages OAuth connections
+ * - TeachingMode: Records workflows from user demonstrations
+ * - Toast: Notifications
  */
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Send, Check, X, Loader2, Bot, User, MessageSquare,
   Search, Mail, Calendar, ShoppingCart, AlertCircle,
   Shield, Lock, Zap, Settings, ChevronDown, ChevronRight,
-  Brain, Wrench, Eye, ThumbsUp, ThumbsDown, Download, Clock
+  Brain, Wrench, Eye, ThumbsUp, ThumbsDown, Download, Clock,
+  Plug, List, Video, Code, Maximize2
 } from 'lucide-react'
 import AISettings from './components/AISettings'
+import IntegrationsHub from './components/IntegrationsHub'
+import TaskPanel from './components/TaskPanel'
+import TeachingMode from './components/TeachingMode'
+import LivePreview from './components/LivePreview'
+import AdaptiveWorkspace from './components/AdaptiveWorkspace'
+import Toast, { ToastProvider, useToast } from './components/Toast'
 import './styles/clean-theme.css'
 
-const API = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com'
+const API = import.meta.env.VITE_API_URL
 
 // =============================================================================
 // Helpers
@@ -403,6 +416,41 @@ function Message({ message, isLast, onConfirm, onOptionClick, loading, messageIn
           </div>
         )}
 
+        {/* Integration prompt - connect service or use fallback */}
+        {ui_components && ui_components.type === 'integration_prompt' && (
+          <div className="integration-prompt">
+            <div className="integration-prompt-icon">🔗</div>
+            <div className="integration-prompt-content">
+              <div className="integration-prompt-title">
+                Connect {ui_components.service?.charAt(0).toUpperCase() + ui_components.service?.slice(1)}
+              </div>
+              <div className="integration-prompt-buttons">
+                {ui_components.buttons?.map((btn, i) => (
+                  <button
+                    key={i}
+                    className={`integration-btn integration-btn-${btn.style || 'primary'}`}
+                    onClick={() => handleIntegrationAction(btn.action, ui_components.service)}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Task classification badge (for debugging/transparency) */}
+        {ui_components && ui_components.type === 'task_classification' && (
+          <div className="task-classification-badge">
+            <span className="task-category">{ui_components.category}</span>
+            {ui_components.risk_level !== 'none' && (
+              <span className={`task-risk task-risk-${ui_components.risk_level}`}>
+                {ui_components.risk_level}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Execution proof */}
         {proof && proof.proof_id && (
           <div className="proof-badge">
@@ -458,12 +506,35 @@ function TypingIndicator() {
 
 function App() {
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(() => {
+    // Load messages from localStorage on initial render
+    try {
+      const saved = localStorage.getItem('super_manager_messages')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
   const [loading, setLoading] = useState(false)
-  const [sessionId, setSessionId] = useState(null)
+  const [sessionId, setSessionId] = useState(() => {
+    // Load session ID from localStorage
+    return localStorage.getItem('super_manager_session_id') || null
+  })
   const [showSettings, setShowSettings] = useState(false)
+  const [showIntegrations, setShowIntegrations] = useState(false)
+  const [showTasks, setShowTasks] = useState(false)
+  const [isTeaching, setIsTeaching] = useState(false)
+  const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
   const [userId, setUserId] = useState(null)
   const [feedbackMap, setFeedbackMap] = useState({})
+  const [showLivePreview, setShowLivePreview] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [currentProject, setCurrentProject] = useState(null)
+  const [activeMode, setActiveMode] = useState('chat') // 'chat' | 'workspace'
+  const [currentTask, setCurrentTask] = useState(null) // For adaptive workspace
+  const [workspaceTasks, setWorkspaceTasks] = useState([])
+  const [showCaptcha, setShowCaptcha] = useState(false)
+  const [captchaUrl, setCaptchaUrl] = useState('')
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -478,6 +549,20 @@ function App() {
     }
     setUserId(id)
   }, [])
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('super_manager_messages', JSON.stringify(messages.slice(-50))) // Keep last 50 messages
+    }
+  }, [messages])
+
+  // Save session ID to localStorage
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem('super_manager_session_id', sessionId)
+    }
+  }, [sessionId])
 
   // Auto-scroll
   useEffect(() => {
@@ -575,6 +660,28 @@ function App() {
                 ]
               }
             })
+          } else if (event.type === 'integration_needed') {
+            // 🔐 Integration Manager: User needs to connect a service
+            const service = event.data?.service || 'unknown'
+            finalAnswer = event.content || `Please connect ${service} to continue.`
+            uiComponents = {
+              type: 'integration_prompt',
+              service: service,
+              buttons: [
+                {
+                  id: 'connect_integration',
+                  label: `Connect ${service.charAt(0).toUpperCase() + service.slice(1)}`,
+                  action: 'open_integrations',
+                  style: 'primary'
+                },
+                {
+                  id: 'use_fallback',
+                  label: 'Use alternative instead',
+                  action: 'fallback',
+                  style: 'secondary'
+                }
+              ]
+            }
           } else if (event.type === 'answer') {
             finalAnswer = event.content
           } else if (event.type === 'confirm_needed') {
@@ -724,6 +831,19 @@ function App() {
     }
   }
 
+  // Handle integration actions (connect service or use fallback)
+  const handleIntegrationAction = (action, service) => {
+    if (action === 'open_integrations') {
+      // Navigate to integrations page or open OAuth flow
+      window.open(`${API}/api/oauth/${service}/connect?redirect=${encodeURIComponent(window.location.href)}`, '_blank')
+    } else if (action === 'fallback') {
+      // Send message to use fallback
+      const fallbackMessage = `Please use the fallback option instead of ${service}`
+      setInput(fallbackMessage)
+      sendMessage(fallbackMessage)
+    }
+  }
+
   return (
     <div className="app">
       {/* Header */}
@@ -737,7 +857,47 @@ function App() {
             <span>Your AI Assistant</span>
           </div>
         </div>
+        
+        {/* Mode Tabs */}
+        <div className="mode-tabs">
+          <button
+            className={`mode-tab ${activeMode === 'chat' ? 'active' : ''}`}
+            onClick={() => { setActiveMode('chat'); setShowLivePreview(false); setCurrentTask(null) }}
+          >
+            <MessageSquare size={16} />
+            Chat
+          </button>
+          <button
+            className={`mode-tab ${activeMode === 'workspace' ? 'active' : ''}`}
+            onClick={() => setActiveMode('workspace')}
+          >
+            <Zap size={16} />
+            Workspace
+          </button>
+        </div>
+        
         <div className="header-actions">
+          <button
+            className={`header-btn ${showTasks ? 'active' : ''}`}
+            onClick={() => setShowTasks(!showTasks)}
+            title="Active Tasks"
+          >
+            <List size={18} />
+          </button>
+          <button
+            className={`header-btn ${showIntegrations ? 'active' : ''}`}
+            onClick={() => setShowIntegrations(!showIntegrations)}
+            title="Integrations"
+          >
+            <Plug size={18} />
+          </button>
+          <button
+            className={`header-btn ${isTeaching ? 'active recording' : ''}`}
+            onClick={() => setIsTeaching(!isTeaching)}
+            title={isTeaching ? "Stop Teaching" : "Teach Workflow"}
+          >
+            <Video size={18} />
+          </button>
           <button
             className="settings-btn"
             onClick={() => setShowSettings(true)}
@@ -752,8 +912,92 @@ function App() {
         </div>
       </header>
 
-      {/* Messages */}
-      <div className="messages">
+      {/* Side Panels */}
+      {showTasks && (
+        <div className="side-panel side-panel-right">
+          <div className="side-panel-header">
+            <h3>Active Tasks</h3>
+            <button onClick={() => setShowTasks(false)}><X size={18} /></button>
+          </div>
+          <TaskPanel userId={userId} refreshTrigger={taskRefreshTrigger} />
+        </div>
+      )}
+
+      {showIntegrations && (
+        <div className="side-panel side-panel-right">
+          <div className="side-panel-header">
+            <h3>Integrations</h3>
+            <button onClick={() => setShowIntegrations(false)}><X size={18} /></button>
+          </div>
+          <IntegrationsHub userId={userId} />
+        </div>
+      )}
+
+      {/* Teaching Mode Overlay */}
+      {isTeaching && (
+        <div className="teaching-overlay">
+          <TeachingMode 
+            sessionId={sessionId}
+            apiUrl={API}
+            onWorkflowSaved={(data) => {
+              setIsTeaching(false)
+              setMessages(prev => [...prev, {
+                role: 'ai',
+                text: `✅ Workflow "${data.workflow_name}" saved with ${data.steps_count} steps! I can now replay this when you ask.`,
+                timestamp: new Date().toISOString()
+              }])
+            }}
+            onCancel={() => setIsTeaching(false)}
+          />
+        </div>
+      )}
+
+      {/* Live Preview IDE (Code Mode) */}
+      {showLivePreview && (
+        <LivePreview
+          project={currentProject}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+          onClose={() => {
+            setShowLivePreview(false)
+            setActiveMode('chat')
+          }}
+        />
+      )}
+
+      {/* Adaptive Workspace Mode */}
+      {activeMode === 'workspace' && (
+        <div className="workspace-container">
+          <AdaptiveWorkspace
+            currentTask={currentTask}
+            tasks={workspaceTasks}
+            messages={messages.map(m => ({ role: m.role, text: m.text, time: m.timestamp }))}
+            onSendMessage={(text) => sendMessage(text)}
+            onTaskSelect={(type, text) => {
+              setCurrentTask({ type, message: text, id: Date.now() })
+              setWorkspaceTasks(prev => [...prev, { 
+                id: Date.now(), 
+                type: type.toUpperCase(), 
+                label: text, 
+                icon: type === 'code' ? '📄' : type === 'meeting' ? '📞' : '🔍',
+                pct: 0,
+                steps: [['run', 'Starting...']]
+              }])
+              sendMessage(text)
+            }}
+            showCaptcha={showCaptcha}
+            captchaUrl={captchaUrl}
+            onCaptchaSolved={() => {
+              setShowCaptcha(false)
+              sendMessage('I completed the CAPTCHA')
+            }}
+            onCaptchaCancel={() => setShowCaptcha(false)}
+          />
+        </div>
+      )}
+
+      {/* Messages - Hidden when in Workspace mode */}
+      <div className={`messages ${showTasks || showIntegrations ? 'with-side-panel' : ''} ${activeMode === 'workspace' || showLivePreview ? 'hidden' : ''}`}>
         {messages.length === 0 ? (
           <WelcomeScreen onActionClick={(text) => {
             setInput(text)

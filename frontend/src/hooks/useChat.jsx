@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { apiUrl } from '../lib/apiBase';
 
 // =============================================================================
 // useChat Hook
@@ -16,7 +17,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
  */
 export function useChat(options = {}) {
   const {
-    apiUrl = import.meta.env.VITE_API_URL || 'https://super-manager-api.onrender.com',
+    apiUrl: apiBaseOverride = null,
     onError = null,
     maxRetries = 3,
     userId = null,
@@ -57,7 +58,7 @@ export function useChat(options = {}) {
     
     while (retries < maxRetries) {
       try {
-        const response = await fetch(`${apiUrl}/api/chat`, {
+        const response = await fetch(apiUrl('/api/chat', apiBaseOverride), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

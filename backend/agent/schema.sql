@@ -414,3 +414,23 @@ CREATE POLICY "Service role has full access to action_logs"
 -- - travel_profiles: Travel preferences (for travel agent persona)
 -- - action_logs: All actions taken by the agent
 -- =============================================================================
+
+-- ==========================================
+-- INTEGRATION MANAGER TABLES
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS public.user_integrations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    provider VARCHAR(255) NOT NULL,
+    encrypted_tokens TEXT,
+    scopes JSONB DEFAULT '[]'::jsonb,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    status VARCHAR(50) DEFAULT 'connected',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    UNIQUE(user_id, provider)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_integrations_user_id ON public.user_integrations(user_id);
+

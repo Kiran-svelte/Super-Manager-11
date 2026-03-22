@@ -58,7 +58,7 @@ class UserInputRequest(BaseModel):
 # =============================================================================
 
 @router.post("", response_model=TaskResponse)
-async def create_task(request: CreateTaskRequest, user_email: str = "default@user.com"):
+async def create_task(request: CreateTaskRequest, user_id: str):
     """
     Create a new orchestrated task.
     
@@ -80,7 +80,7 @@ async def create_task(request: CreateTaskRequest, user_email: str = "default@use
         
         # Create the task
         task = await orchestrator.create_task(
-            user_id=user_email,
+            user_id=user_id,
             task_type=request.task_type,
             params=request.params,
             meeting_start_time=meeting_start_time
@@ -111,17 +111,17 @@ async def create_task(request: CreateTaskRequest, user_email: str = "default@use
 
 @router.get("", response_model=List[Dict])
 async def get_user_tasks(
-    user_email: str = "default@user.com",
+    user_id: str,
     status: Optional[str] = None
 ):
     """
     Get all tasks for a user.
-    
+
     Filter by status: pending, in_progress, waiting_input, completed, failed, cancelled
     """
     try:
         orchestrator = get_orchestrator()
-        tasks = await orchestrator.get_user_tasks(user_email, status)
+        tasks = await orchestrator.get_user_tasks(user_id, status)
         return tasks
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -322,13 +322,13 @@ async def jitsi_webhook(payload: Dict[str, Any]):
 # =============================================================================
 
 @router.get("/notifications")
-async def get_notifications(user_email: str, unread_only: bool = True):
+async def get_notifications(user_id: str, unread_only: bool = True):
     """Get notifications for a user"""
     try:
         orchestrator = get_orchestrator()
-        
+
         if orchestrator.client:
-            query = orchestrator.client.table("notifications").select("*").eq("user_id", user_email)
+            query = orchestrator.client.table("notifications").select("*").eq("user_id", user_id)
             if unread_only:
                 query = query.eq("is_read", False)
             

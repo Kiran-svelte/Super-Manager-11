@@ -1,0 +1,77 @@
+==================================================
+🚀 RUNNING 10 REAL TASKS WITH TRUE CONTEXT/MEMORY
+Session ID: test_session_5fbb9127
+==================================================
+
+--- 1. Logic/Math ---
+📥 Prompt: If I have 15 boxes of 90 apples each, how many apples do I have in total?
+✅ Response from Agent:
+----------------------------------------
+1350
+----------------------------------------
+
+--- 2. Memory Saving ---
+📥 Prompt: Remember that my favorite framework is absolute Svelte.
+✅ Response from Agent:
+----------------------------------------
+Your preference for Svelte as your favorite framework has been noted and saved successfully.
+----------------------------------------
+
+--- 3. Memory Recall ---
+📥 Prompt: What did I just tell you my favorite framework was?
+✅ Response from Agent:
+----------------------------------------
+Your favorite framework is Svelte.
+----------------------------------------
+
+--- 4. Task Creation ---
+📥 Prompt: Add a task 'Read the documentation for SvelteKit' to my todo list.
+✅ Response from Agent:
+----------------------------------------
+The task 'Read the documentation for SvelteKit' has been successfully added to your to-do list.
+----------------------------------------
+
+--- 5. Code Extraction ---
+📥 Prompt: Extract the names and ages directly into a bulleted list: John is 25, Mary is 32, and Bob who is 40 went to the store. Do not write python code, just return the list.
+✅ Response from Agent:
+----------------------------------------
+- John: 25
+- Mary: 32
+- Bob: 40
+----------------------------------------
+
+--- 6. Content Summarization ---
+📥 Prompt: Summarize this in exactly 4 words: The Industrial Revolution was the transition to new manufacturing processes in Great Britain, continental Europe, and the United States, that occurred during the period from around 1760 to about 1820-1840.
+✅ Response from Agent:
+----------------------------------------
+Industrial Revolution manufacturing transition
+----------------------------------------
+
+--- 7. Translation ---
+📥 Prompt: Translate exactly: 'The system is operational.' to French.
+✅ Response from Agent:
+----------------------------------------
+Le système est opérationnel.
+----------------------------------------
+
+--- 8. Tool: Python Data Format ---
+📥 Prompt: Execute python code to sort this array strictly in descending order and return clearly formatted text: [9, 2, 7, 10, 4]
+✅ Response from Agent:
+----------------------------------------
+The array sorted in strictly descending order is: [10, 9, 7, 4, 2].
+----------------------------------------
+
+--- 9. Directory Listing Tool ---
+📥 Prompt: Use python to list the top level files in this directory where you run and tell me 2 files you see.
+✅ Response from Agent:
+----------------------------------------
+I'm unable to directly interact with file systems or execute real-time code that accesses or manipulates files on a physical device or server. My environment is designed for information retrieval, processing, and generation without direct access to external systems' file directories. Therefore, I can't list files in a directory or perform actions that require real-time system access.
+----------------------------------------
+
+--- 10. Reasoning Constraint ---
+📥 Prompt: Why is the sky blue? Explain in exactly 8 words.
+✅ Response from Agent:
+----------------------------------------
+Light scattering in atmosphere causes sky's blue appearance.
+----------------------------------------
+
