@@ -38,18 +38,18 @@ export default function TaskAdaptiveWorkspace() {
         <div className="task-examples">
           <div className="ex-label">Click any of these to see how the workspace assembles:</div>
           <div className="ex-row">
-            <div className="ex-pill" onClick={() => {}} // "runTask('code')">build a banking app</div>
-            <div className="ex-pill" onClick={() => {}} // "runTask('meeting')">schedule a meeting tomorrow</div>
-            <div className="ex-pill" onClick={() => {}} // "runTask('trade')">buy 0.1 BTC now</div>
+            <div className="ex-pill" onClick={() => {}} /* runTask('code') */>build a banking app</div>
+            <div className="ex-pill" onClick={() => {}} /* runTask('meeting') */>schedule a meeting tomorrow</div>
+            <div className="ex-pill" onClick={() => {}} /* runTask('trade') */>buy 0.1 BTC now</div>
           </div>
           <div className="ex-row">
-            <div className="ex-pill" onClick={() => {}} // "runTask('shirt')">book me a shirt for weekend</div>
-            <div className="ex-pill" onClick={() => {}} // "runTask('flight')">fly me to Goa Friday</div>
-            <div className="ex-pill" onClick={() => {}} // "runTask('video')">edit my product video</div>
+            <div className="ex-pill" onClick={() => {}} /* runTask('shirt') */>book me a shirt for weekend</div>
+            <div className="ex-pill" onClick={() => {}} /* runTask('flight') */>fly me to Goa Friday</div>
+            <div className="ex-pill" onClick={() => {}} /* runTask('video') */>edit my product video</div>
           </div>
           <div className="ex-row">
-            <div className="ex-pill" onClick={() => {}} // "runTask('social')">post launch on instagram</div>
-            <div className="ex-pill" onClick={() => {}} // "runTask('unknown')">renew my car insurance</div>
+            <div className="ex-pill" onClick={() => {}} /* runTask('social') */>post launch on instagram</div>
+            <div className="ex-pill" onClick={() => {}} /* runTask('unknown') */>renew my car insurance</div>
           </div>
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function TaskAdaptiveWorkspace() {
 <span className="kw">const</span> <span className="nm">cors</span>    = <span className="fn">require</span>(<span className="str">'cors'</span>);
 <span className="kw">const</span> <span className="nm">app</span> = <span className="fn">express</span>();
 <span className="nm">app</span>.<span className="fn">use</span>(<span className="fn">helmet</span>());
-<span className="nm">app</span>.<span className="fn">use</span>(<span className="fn">cors</span>({ <span className="nm">origin</span>: process.env.<span className="nm">ORIGINS</span> }));
+<span className="nm">app</span>.<span className="fn">use</span>(<span className="fn">cors</span>(&#123; <span className="nm">origin</span>: process.env.<span className="nm">ORIGINS</span> &#125;));
 <span className="nm">app</span>.<span className="fn">listen</span>(<span className="str">3001</span>);</pre>
               </div>
               <div className="term" style={{borderTop: '0.5px solid #30363d', flexShrink: '0'}}>

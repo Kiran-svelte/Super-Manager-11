@@ -276,6 +276,14 @@ body {
   display: none !important;
 }
 
+/* Workspace Container */
+.workspace-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  background: #0d1117;
+}
+
 .settings-btn {
   display: flex;
   align-items: center;
