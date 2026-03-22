@@ -1,4 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import os
+
+with open('frontend/src/TaskAdaptiveWorkspace.jsx', 'w', encoding='utf-8') as f:
+    f.write('''import React, { useEffect, useRef } from "react";
 import "./TaskWorkspace.css";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -117,3 +120,6 @@ export default function TaskAdaptiveWorkspace({ messages, input, setInput, send,
     </div>
   );
 }
+''')
+    
+print("Saved TaskAdaptiveWorkspace.jsx")
