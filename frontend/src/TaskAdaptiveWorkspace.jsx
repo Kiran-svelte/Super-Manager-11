@@ -329,6 +329,206 @@ function BrowserWorkspace({ taskMessage }) {
   );
 }
 
+// VIDEO WORKSPACE
+function VideoWorkspace({ taskMessage }) {
+  return (
+    <div className="panels">
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header"><span className="ph-icon">🎬</span><span className="ph-title">Video Editor</span></div>
+        <div className="panel-body">
+          <div className="video-screen" style={{background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '6px', padding: '16px', minHeight: '120px', borderBottom: '0.5px solid #30363d'}}>
+            <span style={{fontSize: '32px'}}>🎬</span>
+            <span style={{fontSize: '10px', color: '#8b949e'}}>product_video.mp4</span>
+            <span style={{fontSize: '9px', color: '#3fb950'}}>00:00 / 02:45</span>
+          </div>
+          <div className="tl-wrap" style={{padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
+            <div className="tl-track" style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+              <span className="tl-lbl" style={{fontSize: '9px', color: '#484f58', minWidth: '38px'}}>Video</span>
+              <div className="tl-clips" style={{display: 'flex', gap: '2px', flex: 1}}>
+                <div className="clip clip-v" style={{height: '18px', borderRadius: '3px', padding: '0 5px', fontSize: '8px', color: '#fff', display: 'flex', alignItems: 'center', background: '#3a1a6e', flex: 2}}>Intro</div>
+                <div className="clip clip-v" style={{height: '18px', borderRadius: '3px', padding: '0 5px', fontSize: '8px', color: '#fff', display: 'flex', alignItems: 'center', background: '#3a1a6e', flex: 3}}>Main</div>
+                <div className="clip clip-v" style={{height: '18px', borderRadius: '3px', padding: '0 5px', fontSize: '8px', color: '#fff', display: 'flex', alignItems: 'center', background: '#3a1a6e', flex: 1}}>End</div>
+              </div>
+            </div>
+            <div className="tl-track" style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+              <span className="tl-lbl" style={{fontSize: '9px', color: '#484f58', minWidth: '38px'}}>Audio</span>
+              <div className="tl-clips" style={{display: 'flex', gap: '2px', flex: 1}}>
+                <div className="clip clip-a" style={{height: '18px', borderRadius: '3px', padding: '0 5px', fontSize: '8px', color: '#fff', display: 'flex', alignItems: 'center', background: '#1a3a1a', flex: 1}}>BG Music</div>
+              </div>
+            </div>
+            <div className="tl-track" style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+              <span className="tl-lbl" style={{fontSize: '9px', color: '#484f58', minWidth: '38px'}}>Text</span>
+              <div className="tl-clips" style={{display: 'flex', gap: '2px', flex: 1}}>
+                <div className="clip clip-t" style={{height: '18px', borderRadius: '3px', padding: '0 5px', fontSize: '8px', color: '#fff', display: 'flex', alignItems: 'center', background: '#7c3aed', flex: 1}}>Title</div>
+                <div className="clip clip-t" style={{height: '18px', borderRadius: '3px', padding: '0 5px', fontSize: '8px', color: '#fff', display: 'flex', alignItems: 'center', background: '#7c3aed', flex: 1}}>CTA</div>
+              </div>
+            </div>
+          </div>
+          <div className="tl-controls" style={{display: 'flex', gap: '6px', justifyContent: 'center', padding: '6px', borderTop: '0.5px solid #30363d'}}>
+            <div className="tlc" style={{width: '22px', height: '22px', borderRadius: '50%', background: '#21262d', border: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', cursor: 'pointer', color: '#c9d1d9'}}>⏮</div>
+            <div className="tlc" style={{width: '22px', height: '22px', borderRadius: '50%', background: '#7c3aed', border: '0.5px solid #7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', cursor: 'pointer', color: '#fff'}}>▶</div>
+            <div className="tlc" style={{width: '22px', height: '22px', borderRadius: '50%', background: '#21262d', border: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', cursor: 'pointer', color: '#c9d1d9'}}>⏭</div>
+            <button className="export-btn-v" style={{padding: '4px 10px', background: '#3fb950', border: 'none', borderRadius: '5px', color: '#fff', fontSize: '9px', cursor: 'pointer', marginLeft: '10px'}}>Export</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// SOCIAL WORKSPACE
+function SocialWorkspace({ taskMessage }) {
+  const [selectedPlatforms, setSelectedPlatforms] = useState(['Instagram']);
+  const platforms = ['Instagram', 'Facebook', 'Twitter', 'LinkedIn'];
+  
+  const togglePlatform = (p) => {
+    setSelectedPlatforms(prev => 
+      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+    );
+  };
+  
+  return (
+    <div className="panels">
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header"><span className="ph-icon">📱</span><span className="ph-title">Post Preview</span></div>
+        <div className="panel-body">
+          <div className="ig-post" style={{background: '#fff', borderRadius: '8px', border: '0.5px solid #dbdbdb', overflow: 'hidden', margin: '8px 10px'}}>
+            <div className="ig-head" style={{display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 9px', borderBottom: '0.5px solid #f0f0f0'}}>
+              <div className="ig-av" style={{width: '24px', height: '24px', borderRadius: '50%', background: '#e1306c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff', fontWeight: 500}}>YO</div>
+              <div className="ig-name" style={{fontSize: '10px', color: '#262626', fontWeight: 500}}>your_brand</div>
+            </div>
+            <div className="ig-img" style={{background: '#1a1a3e', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '4px'}}>
+              <span style={{fontSize: '32px'}}>🚀</span>
+              <span style={{fontSize: '10px', color: '#fff'}}>Launch Day!</span>
+            </div>
+            <div className="ig-caption" style={{padding: '7px 9px', fontSize: '9px', color: '#262626', lineHeight: 1.5}}>
+              🎉 We're officially live! Check out our new product...
+              <span style={{color: '#00376b'}}>#launch #startup #newproduct</span>
+            </div>
+          </div>
+          <div className="c-section" style={{padding: '6px 12px 3px', fontSize: '9px', color: '#484f58', textTransform: 'uppercase'}}>Platforms</div>
+          <div className="plat-row" style={{display: 'flex', gap: '5px', flexWrap: 'wrap', padding: '8px 12px'}}>
+            {platforms.map(p => (
+              <div key={p} className={`plat ${selectedPlatforms.includes(p) ? 'on' : ''}`} 
+                onClick={() => togglePlatform(p)}
+                style={{padding: '4px 9px', borderRadius: '5px', fontSize: '9px', border: '0.5px solid', cursor: 'pointer', borderColor: selectedPlatforms.includes(p) ? '#7c3aed' : '#30363d', background: selectedPlatforms.includes(p) ? '#7c3aed22' : 'transparent', color: selectedPlatforms.includes(p) ? '#d2a8ff' : '#8b949e'}}>
+                {p}
+              </div>
+            ))}
+          </div>
+          <div className="sched-time" style={{margin: '0 12px 8px', background: '#21262d', border: '0.5px solid #30363d', borderRadius: '6px', padding: '5px 8px', fontSize: '9px', color: '#c9d1d9'}}>
+            📅 Schedule: Now (immediately)
+          </div>
+          <button className="post-btn" style={{margin: '0 12px 10px', padding: '7px', background: '#e1306c', border: 'none', borderRadius: '7px', color: '#fff', fontSize: '10px', cursor: 'pointer', display: 'block', width: 'calc(100% - 24px)'}}>Post to {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// FLIGHT WORKSPACE
+function FlightWorkspace({ taskMessage }) {
+  const [selectedSeat, setSelectedSeat] = useState('12A');
+  const flights = [
+    { airline: 'IndiGo', time: '06:15 → 08:30', dur: '2h 15m', price: '₹3,499', best: true },
+    { airline: 'Air India', time: '09:00 → 11:20', dur: '2h 20m', price: '₹4,199', best: false },
+    { airline: 'SpiceJet', time: '14:30 → 16:50', dur: '2h 20m', price: '₹2,999', best: false }
+  ];
+  const rows = [10, 11, 12, 13];
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const takenSeats = ['10B', '10C', '11A', '11E', '12D', '13B', '13C'];
+  
+  return (
+    <div className="panels">
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header"><span className="ph-icon">✈️</span><span className="ph-title">Flights — Goa Friday</span></div>
+        <div className="panel-body">
+          {flights.map((f, i) => (
+            <div key={i} className={`flight-card ${f.best ? 'best' : ''}`} style={{margin: '6px 12px', background: '#0d1117', border: '0.5px solid', borderColor: f.best ? '#3fb950' : '#30363d', borderRadius: '8px', padding: '9px', cursor: 'pointer'}}>
+              <div className="fl-row" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <div className="fl-airline" style={{fontSize: '10px', color: '#e6edf3', fontWeight: 500, minWidth: '72px'}}>{f.airline}</div>
+                <div className="fl-times" style={{fontSize: '10px', color: '#c9d1d9'}}>{f.time}</div>
+                <div className="fl-dur" style={{fontSize: '9px', color: '#8b949e', flex: 1}}>{f.dur}</div>
+                <div className="fl-price" style={{fontSize: '12px', color: '#e6edf3', fontWeight: 500}}>{f.price}</div>
+              </div>
+              {f.best && <div style={{fontSize: '8px', marginTop: '4px', color: '#3fb950'}}>✓ Best price</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header"><span className="ph-icon">💺</span><span className="ph-title">Select Seat</span></div>
+        <div className="panel-body">
+          <div className="seat-map" style={{padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '3px'}}>
+            {rows.map(row => (
+              <div key={row} className="seat-row" style={{display: 'flex', gap: '3px', alignItems: 'center'}}>
+                <span className="seat-rn" style={{fontSize: '8px', color: '#484f58', minWidth: '16px'}}>{row}</span>
+                {cols.slice(0, 3).map(col => {
+                  const seatId = `${row}${col}`;
+                  const taken = takenSeats.includes(seatId);
+                  const selected = selectedSeat === seatId;
+                  return (
+                    <div key={seatId} 
+                      className={`seat ${taken ? 'taken' : 'free'} ${selected ? 'sel' : ''}`}
+                      onClick={() => !taken && setSelectedSeat(seatId)}
+                      style={{width: '16px', height: '16px', borderRadius: '3px', border: '0.5px solid', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', cursor: taken ? 'not-allowed' : 'pointer', background: selected ? '#7c3aed' : taken ? '#21262d' : 'transparent', borderColor: selected ? '#7c3aed' : '#30363d', color: selected ? '#fff' : taken ? '#484f58' : '#8b949e'}}>
+                      {col}
+                    </div>
+                  );
+                })}
+                <div className="seat-gap" style={{width: '12px'}}></div>
+                {cols.slice(3).map(col => {
+                  const seatId = `${row}${col}`;
+                  const taken = takenSeats.includes(seatId);
+                  const selected = selectedSeat === seatId;
+                  return (
+                    <div key={seatId} 
+                      className={`seat ${taken ? 'taken' : 'free'} ${selected ? 'sel' : ''}`}
+                      onClick={() => !taken && setSelectedSeat(seatId)}
+                      style={{width: '16px', height: '16px', borderRadius: '3px', border: '0.5px solid', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', cursor: taken ? 'not-allowed' : 'pointer', background: selected ? '#7c3aed' : taken ? '#21262d' : 'transparent', borderColor: selected ? '#7c3aed' : '#30363d', color: selected ? '#fff' : taken ? '#484f58' : '#8b949e'}}>
+                      {col}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div style={{padding: '8px 12px', fontSize: '9px', color: '#8b949e'}}>
+            Selected: <span style={{color: '#d2a8ff'}}>{selectedSeat}</span> (Window)
+          </div>
+          <button style={{margin: '0 12px 10px', padding: '7px', background: '#3fb950', border: 'none', borderRadius: '7px', color: '#fff', fontSize: '10px', cursor: 'pointer', display: 'block', width: 'calc(100% - 24px)'}}>Book Flight — ₹3,499</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// EMAIL WORKSPACE
+function EmailWorkspace({ taskMessage }) {
+  return (
+    <div className="panels">
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header"><span className="ph-icon">📧</span><span className="ph-title">Compose Email</span></div>
+        <div className="panel-body" style={{padding: '12px'}}>
+          <div style={{marginBottom: '8px'}}>
+            <label style={{fontSize: '9px', color: '#8b949e', display: 'block', marginBottom: '4px'}}>To:</label>
+            <input type="text" placeholder="recipient@email.com" style={{width: '100%', background: '#21262d', border: '0.5px solid #30363d', borderRadius: '4px', padding: '6px 8px', fontSize: '10px', color: '#e6edf3', outline: 'none'}} />
+          </div>
+          <div style={{marginBottom: '8px'}}>
+            <label style={{fontSize: '9px', color: '#8b949e', display: 'block', marginBottom: '4px'}}>Subject:</label>
+            <input type="text" placeholder="Email subject" style={{width: '100%', background: '#21262d', border: '0.5px solid #30363d', borderRadius: '4px', padding: '6px 8px', fontSize: '10px', color: '#e6edf3', outline: 'none'}} />
+          </div>
+          <div style={{marginBottom: '8px'}}>
+            <label style={{fontSize: '9px', color: '#8b949e', display: 'block', marginBottom: '4px'}}>Message:</label>
+            <textarea placeholder="Write your email..." rows={6} style={{width: '100%', background: '#21262d', border: '0.5px solid #30363d', borderRadius: '4px', padding: '6px 8px', fontSize: '10px', color: '#e6edf3', outline: 'none', resize: 'none'}} />
+          </div>
+          <button style={{width: '100%', padding: '7px', background: '#7c3aed', border: 'none', borderRadius: '7px', color: '#fff', fontSize: '10px', cursor: 'pointer'}}>Send Email</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // EXAMPLE TASKS
 const EXAMPLE_TASKS = [
   { text: 'build a banking app', type: 'code' },
@@ -393,6 +593,10 @@ export default function TaskAdaptiveWorkspace({ messages, input, setInput, send,
       case 'meeting': return <MeetingWorkspace taskMessage={taskMessage} />;
       case 'trade': return <TradeWorkspace taskMessage={taskMessage} />;
       case 'shopping': return <ShoppingWorkspace taskMessage={taskMessage} />;
+      case 'flight': return <FlightWorkspace taskMessage={taskMessage} />;
+      case 'video': return <VideoWorkspace taskMessage={taskMessage} />;
+      case 'social': return <SocialWorkspace taskMessage={taskMessage} />;
+      case 'email': return <EmailWorkspace taskMessage={taskMessage} />;
       case 'browser': return <BrowserWorkspace taskMessage={taskMessage} />;
       default: return <BrowserWorkspace taskMessage={taskMessage} />;
     }
