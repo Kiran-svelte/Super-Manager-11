@@ -1,24 +1,412 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./TaskWorkspace.css";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+// Task type detection from message
+function detectTaskType(message) {
+  if (!message) return null;
+  const text = message.toLowerCase();
+  
+  if (text.includes('build') || text.includes('code') || text.includes('app') || text.includes('website') || text.includes('create') && (text.includes('app') || text.includes('software'))) return 'code';
+  if (text.includes('meeting') || text.includes('schedule') || text.includes('call') || text.includes('zoom') || text.includes('jitsi')) return 'meeting';
+  if (text.includes('buy') || text.includes('trade') || text.includes('btc') || text.includes('stock') || text.includes('crypto')) return 'trade';
+  if (text.includes('shop') || text.includes('order') || text.includes('shirt') || text.includes('buy') && !text.includes('btc')) return 'shopping';
+  if (text.includes('flight') || text.includes('fly') || text.includes('travel') || text.includes('book') && text.includes('trip')) return 'flight';
+  if (text.includes('video') || text.includes('edit') || text.includes('youtube')) return 'video';
+  if (text.includes('post') || text.includes('instagram') || text.includes('social') || text.includes('facebook')) return 'social';
+  if (text.includes('email') || text.includes('send') || text.includes('mail')) return 'email';
+  return 'browser'; // fallback
+}
+
+// Task configurations
+const TASK_CONFIG = {
+  code: { icon: '📄', label: 'Code IDE', badges: [{ cls: 'bp', text: 'IDE' }, { cls: 'bg', text: 'Live' }] },
+  meeting: { icon: '📞', label: 'Meeting', badges: [{ cls: 'bp', text: 'Meeting' }, { cls: 'bb', text: 'Jitsi ready' }] },
+  trade: { icon: '📈', label: 'Trade', badges: [{ cls: 'br', text: 'High risk' }, { cls: 'bp', text: 'Confirm needed' }] },
+  shopping: { icon: '🛍️', label: 'Shopping', badges: [{ cls: 'bg', text: 'Low risk' }] },
+  flight: { icon: '✈️', label: 'Travel', badges: [{ cls: 'ba', text: 'Medium risk' }] },
+  video: { icon: '🎬', label: 'Video Edit', badges: [{ cls: 'bp', text: 'Editor' }] },
+  social: { icon: '📱', label: 'Social', badges: [{ cls: 'bp', text: 'Post' }] },
+  email: { icon: '📧', label: 'Email', badges: [{ cls: 'bg', text: 'Send' }] },
+  browser: { icon: '🌐', label: 'Browser', badges: [{ cls: 'ba', text: 'Fallback' }] }
+};
+
+// CODE WORKSPACE
+function CodeWorkspace({ taskMessage }) {
+  const [activeFile, setActiveFile] = useState('server.js');
+  const files = ['server.js', 'middleware.js', 'routes.js', 'models.js', 'App.js', 'package.json'];
+  
+  return (
+    <div className="panels">
+      {/* File Tree */}
+      <div className="panel" style={{width: '140px'}}>
+        <div className="panel-header"><span className="ph-icon">📁</span><span className="ph-title">Files</span></div>
+        <div className="panel-body">
+          <div className="ftree-folder">📁 backend/</div>
+          {files.slice(0, 4).map(f => (
+            <div key={f} className={`ftree-item ${activeFile === f ? 'on' : ''}`} onClick={() => setActiveFile(f)}>
+              📄 {f}
+            </div>
+          ))}
+          <div className="ftree-folder">📁 frontend/</div>
+          {files.slice(4).map(f => (
+            <div key={f} className={`ftree-item ${activeFile === f ? 'on' : ''}`} onClick={() => setActiveFile(f)}>
+              📄 {f}
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Editor + Terminal */}
+      <div className="panel" style={{flex: 1, minWidth: 0}}>
+        <div className="panel-header">
+          <span className="ph-icon">✏️</span>
+          <span className="ph-title">{activeFile}</span>
+          <span className="badge bp" style={{fontSize: '8px'}}>active</span>
+        </div>
+        <div className="panel-body" style={{display: 'flex', flexDirection: 'column'}}>
+          <div className="code-editor" style={{flex: 1, fontFamily: 'monospace', fontSize: '11px', lineHeight: 1.7, padding: '12px'}}>
+            <pre style={{margin: 0}}>
+              <span className="cm">// Auto-generated code for your app</span>{'\n'}
+              <span className="kw">const</span> <span className="nm">express</span> = <span className="fn">require</span>(<span className="str">'express'</span>);{'\n'}
+              <span className="kw">const</span> <span className="nm">helmet</span>  = <span className="fn">require</span>(<span className="str">'helmet'</span>);{'\n'}
+              <span className="kw">const</span> <span className="nm">cors</span>    = <span className="fn">require</span>(<span className="str">'cors'</span>);{'\n'}
+              <span className="kw">const</span> <span className="nm">app</span> = <span className="fn">express</span>();{'\n'}
+              <span className="nm">app</span>.<span className="fn">use</span>(<span className="fn">helmet</span>());{'\n'}
+              <span className="nm">app</span>.<span className="fn">use</span>(<span className="fn">cors</span>({'{'} <span className="nm">origin</span>: process.env.<span className="nm">ORIGINS</span> {'}'}));{'\n'}
+              <span className="nm">app</span>.<span className="fn">listen</span>(<span className="str">3001</span>);
+            </pre>
+          </div>
+          <div className="term" style={{borderTop: '0.5px solid #30363d', padding: '8px 12px', background: '#010409', fontFamily: 'monospace', fontSize: '10px'}}>
+            <div><span className="tok">✔ npm install done</span></div>
+            <div><span className="tp2">$ </span><span className="tc">node server.js</span></div>
+            <div><span className="tok">✔ Server running :3001</span></div>
+            <div><span className="tp2">$ </span><span className="tcur"></span></div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Live Preview */}
+      <div className="panel" style={{flex: 1, minWidth: 0}}>
+        <div className="panel-header">
+          <span className="ph-icon">👁️</span>
+          <span className="ph-title">Live preview — localhost:3000</span>
+          <div style={{display: 'flex', alignItems: 'center', gap: '3px'}}><div className="ldot"></div><span style={{fontSize: '8px', color: '#3fb950'}}>running</span></div>
+        </div>
+        <div className="panel-body">
+          <div className="bank-preview" style={{background: '#f0f4ff', minHeight: '100%', padding: 0}}>
+            <div className="bnav" style={{background: '#1a1a3e', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+              <div className="blogo" style={{fontSize: '11px', color: '#fff', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '5px'}}>
+                <div style={{width: '18px', height: '18px', borderRadius: '5px', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff'}}>M</div>
+                My App
+              </div>
+            </div>
+            <div style={{padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+              <div style={{background: '#1a1a3e', borderRadius: '8px', padding: '10px', color: '#fff'}}>
+                <div style={{fontSize: '8px', color: '#a0a8c8', textTransform: 'uppercase'}}>Welcome</div>
+                <div style={{fontSize: '18px', fontWeight: 500, margin: '2px 0'}}>Hello World</div>
+              </div>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px'}}>
+                {['Home', 'About', 'Contact', 'Blog'].map(item => (
+                  <div key={item} style={{background: '#fff', borderRadius: '6px', padding: '6px 3px', textAlign: 'center', fontSize: '8px', color: '#555'}}>{item}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// MEETING WORKSPACE
+function MeetingWorkspace({ taskMessage }) {
+  const [selectedSlot, setSelectedSlot] = useState('10:00 AM');
+  const [selectedPlatform, setSelectedPlatform] = useState('Jitsi');
+  const slots = ['9:00 AM', '10:00 AM', '11:00 AM', '2:00 PM', '3:00 PM', '4:00 PM'];
+  const takenSlots = ['9:00 AM', '3:00 PM'];
+  
+  return (
+    <div className="panels">
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header"><span className="ph-icon">📅</span><span className="ph-title">Time slots — tomorrow</span></div>
+        <div className="panel-body">
+          <div className="slot-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', padding: '10px 12px'}}>
+            {slots.map(s => (
+              <div key={s} 
+                className={`slot ${takenSlots.includes(s) ? 'gone' : ''} ${selectedSlot === s ? 'sel' : ''}`}
+                onClick={() => !takenSlots.includes(s) && setSelectedSlot(s)}
+                style={{padding: '6px', borderRadius: '5px', border: '0.5px solid #30363d', fontSize: '10px', cursor: takenSlots.includes(s) ? 'default' : 'pointer', textAlign: 'center', color: '#c9d1d9', textDecoration: takenSlots.includes(s) ? 'line-through' : 'none', background: selectedSlot === s ? '#7c3aed22' : 'transparent', borderColor: selectedSlot === s ? '#7c3aed' : '#30363d'}}>
+                {s}
+              </div>
+            ))}
+          </div>
+          <div className="divider"></div>
+          <div className="c-section">Attendees</div>
+          <div className="attendee" style={{display: 'flex', alignItems: 'center', gap: '7px', padding: '6px 12px', borderBottom: '0.5px solid #21262d'}}>
+            <div style={{width: '22px', height: '22px', borderRadius: '50%', background: '#7c3aed44', color: '#d2a8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 500}}>YO</div>
+            <div><div style={{fontSize: '10px', color: '#c9d1d9'}}>You</div><div style={{fontSize: '9px', color: '#8b949e'}}>● Available</div></div>
+          </div>
+          <div className="c-section" style={{marginTop: '6px'}}>Platform</div>
+          <div style={{display: 'flex', gap: '5px', padding: '6px 12px'}}>
+            {['Jitsi', 'Zoom', 'Meet'].map(p => (
+              <div key={p} className={`slot ${selectedPlatform === p ? 'sel' : ''}`} 
+                onClick={() => setSelectedPlatform(p)}
+                style={{flex: 1, padding: '6px', borderRadius: '5px', border: '0.5px solid #30363d', fontSize: '10px', cursor: 'pointer', textAlign: 'center', background: selectedPlatform === p ? '#7c3aed22' : 'transparent', borderColor: selectedPlatform === p ? '#7c3aed' : '#30363d', color: selectedPlatform === p ? '#d2a8ff' : '#c9d1d9'}}>
+                {p}
+              </div>
+            ))}
+          </div>
+          <button className="cfm-btn" style={{margin: '10px 12px', padding: '7px', background: '#7c3aed', border: 'none', borderRadius: '7px', color: '#fff', fontSize: '10px', cursor: 'pointer', display: 'block', width: 'calc(100% - 24px)'}}>Confirm & send invites</button>
+        </div>
+      </div>
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header">
+          <span className="ph-icon">📹</span><span className="ph-title">Live meeting preview</span>
+          <div style={{display: 'flex', alignItems: 'center', gap: '3px', marginLeft: 'auto'}}><div className="ldot"></div><span style={{fontSize: '8px', color: '#3fb950'}}>Jitsi</span></div>
+        </div>
+        <div className="panel-body">
+          <div className="cam-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '10px'}}>
+            <div className="cam" style={{background: '#21262d', borderRadius: '8px', height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '3px', position: 'relative', border: '0.5px solid #30363d'}}>
+              <div style={{position: 'absolute', top: '4px', left: '4px', background: '#f85149', color: '#fff', fontSize: '7px', padding: '1px 4px', borderRadius: '3px'}}>LIVE</div>
+              <span style={{fontSize: '18px'}}>👤</span>
+              <div style={{fontSize: '9px', color: '#8b949e'}}>You</div>
+            </div>
+            <div className="cam" style={{background: '#21262d', borderRadius: '8px', height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '3px', border: '0.5px solid #30363d'}}>
+              <span style={{fontSize: '18px'}}>👤</span>
+              <div style={{fontSize: '9px', color: '#8b949e'}}>Guest</div>
+            </div>
+          </div>
+          <div className="meet-controls" style={{display: 'flex', justifyContent: 'center', gap: '8px', padding: '8px'}}>
+            <div className="mc" style={{width: '26px', height: '26px', borderRadius: '50%', background: '#21262d', border: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', cursor: 'pointer'}}>🎤</div>
+            <div className="mc" style={{width: '26px', height: '26px', borderRadius: '50%', background: '#21262d', border: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', cursor: 'pointer'}}>📹</div>
+            <div className="mc" style={{width: '26px', height: '26px', borderRadius: '50%', background: '#3fb950', border: '0.5px solid #3fb950', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', cursor: 'pointer'}}>📞</div>
+            <div className="mc" style={{width: '26px', height: '26px', borderRadius: '50%', background: '#f85149', border: '0.5px solid #f85149', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', cursor: 'pointer'}}>⬇</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// TRADE WORKSPACE
+function TradeWorkspace({ taskMessage }) {
+  const [side, setSide] = useState('buy');
+  const bars = [35, 42, 38, 55, 48, 62, 58, 45, 52, 68, 55, 48];
+  
+  return (
+    <div className="panels">
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header"><span className="ph-icon">📈</span><span className="ph-title">BTC/USDT live</span></div>
+        <div className="panel-body">
+          <div className="chart-bars" style={{display: 'flex', alignItems: 'flex-end', gap: '1px', height: '50px', padding: '0 12px', marginTop: '6px'}}>
+            {bars.map((h, i) => (
+              <div key={i} className={`bar ${i % 2 === 0 ? 'bar-up' : 'bar-dn'}`} style={{flex: 1, height: `${h}%`, borderRadius: '1px 1px 0 0', background: i % 2 === 0 ? '#3fb950' : '#f85149'}}></div>
+            ))}
+          </div>
+          <div className="price-big" style={{fontSize: '20px', color: '#e6edf3', fontWeight: 500, padding: '0 12px', marginTop: '6px'}}>$67,420</div>
+          <div className="price-chg" style={{fontSize: '10px', padding: '0 12px 8px', color: '#3fb950'}}>+2.4% (24h)</div>
+          <div className="order-row" style={{display: 'flex', gap: '5px', padding: '10px 12px'}}>
+            <div className={`order-side ${side === 'buy' ? 'buy-side' : ''}`} 
+              onClick={() => setSide('buy')}
+              style={{flex: 1, padding: '6px', borderRadius: '6px', textAlign: 'center', fontSize: '10px', cursor: 'pointer', border: '0.5px solid', background: side === 'buy' ? '#23863622' : '#21262d', borderColor: side === 'buy' ? '#238636' : '#30363d', color: side === 'buy' ? '#3fb950' : '#8b949e'}}>
+              Buy
+            </div>
+            <div className={`order-side ${side === 'sell' ? 'sell-side' : ''}`}
+              onClick={() => setSide('sell')}
+              style={{flex: 1, padding: '6px', borderRadius: '6px', textAlign: 'center', fontSize: '10px', cursor: 'pointer', border: '0.5px solid', background: side === 'sell' ? '#f8514922' : '#21262d', borderColor: side === 'sell' ? '#f85149' : '#30363d', color: side === 'sell' ? '#f85149' : '#8b949e'}}>
+              Sell
+            </div>
+          </div>
+          <div className="confirm-wrap" style={{margin: '0 12px 10px', background: '#f8514911', border: '0.5px solid #f85149', borderRadius: '8px', padding: '9px 10px'}}>
+            <div className="cw-title" style={{fontSize: '11px', color: '#f85149', fontWeight: 500, marginBottom: '6px'}}>⚠️ High risk trade - Confirm required</div>
+            <div className="cw-row" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '3px'}}>
+              <span className="cw-k" style={{fontSize: '9px', color: '#8b949e'}}>Amount:</span>
+              <span className="cw-v" style={{fontSize: '9px', color: '#e6edf3'}}>0.1 BTC</span>
+            </div>
+            <div className="cw-row" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '3px'}}>
+              <span className="cw-k" style={{fontSize: '9px', color: '#8b949e'}}>Price:</span>
+              <span className="cw-v" style={{fontSize: '9px', color: '#e6edf3'}}>$6,742</span>
+            </div>
+            <div className="cw-btns" style={{display: 'flex', gap: '5px', marginTop: '7px'}}>
+              <button className="cw-go" style={{flex: 1, padding: '6px', borderRadius: '6px', fontSize: '10px', cursor: 'pointer', border: '0.5px solid #f85149', background: '#f85149', color: '#fff'}}>Confirm Trade</button>
+              <button className="cw-no" style={{flex: 1, padding: '6px', borderRadius: '6px', fontSize: '10px', cursor: 'pointer', border: '0.5px solid #30363d', background: 'transparent', color: '#8b949e'}}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// SHOPPING WORKSPACE
+function ShoppingWorkspace({ taskMessage }) {
+  const products = [
+    { name: 'Nike Dri-FIT Shirt', site: 'Amazon', price: '₹1,299', best: true },
+    { name: 'Adidas Originals', site: 'Flipkart', price: '₹1,499', best: false },
+    { name: 'Puma Essential', site: 'Myntra', price: '₹999', best: false }
+  ];
+  
+  return (
+    <div className="panels">
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header"><span className="ph-icon">🛍️</span><span className="ph-title">Best matches</span></div>
+        <div className="panel-body">
+          {products.map((p, i) => (
+            <div key={i} className={`prod-card ${p.best ? 'best' : ''}`} style={{background: '#0d1117', border: '0.5px solid', borderColor: p.best ? '#3fb950' : '#30363d', borderRadius: '7px', margin: '6px 12px', padding: '9px', cursor: 'pointer'}}>
+              <div className="prod-top" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <div className="prod-img" style={{fontSize: '22px'}}>👕</div>
+                <div><div className="prod-name" style={{fontSize: '10px', color: '#c9d1d9', fontWeight: 500}}>{p.name}</div><div className="prod-site" style={{fontSize: '9px', color: '#8b949e'}}>{p.site}</div></div>
+                <div className="prod-price" style={{fontSize: '12px', color: '#e6edf3', fontWeight: 500, marginLeft: 'auto'}}>{p.price}</div>
+              </div>
+              {p.best && <div className="prod-tag tg" style={{fontSize: '8px', marginTop: '4px', color: '#3fb950'}}>✓ Best match</div>}
+            </div>
+          ))}
+          <div className="checkout-block" style={{margin: '6px 12px 10px', background: '#161b22', border: '0.5px solid #30363d', borderRadius: '8px', padding: '10px'}}>
+            <div className="checkout-row" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '4px'}}>
+              <span className="ck-k" style={{fontSize: '9px', color: '#8b949e'}}>Selected:</span>
+              <span className="ck-v" style={{fontSize: '9px', color: '#c9d1d9'}}>Nike Dri-FIT Shirt</span>
+            </div>
+            <div className="checkout-row" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '4px'}}>
+              <span className="ck-k" style={{fontSize: '9px', color: '#8b949e'}}>Total:</span>
+              <span className="ck-v" style={{fontSize: '9px', color: '#c9d1d9'}}>₹1,299</span>
+            </div>
+            <button className="order-btn" style={{width: '100%', marginTop: '8px', padding: '7px', background: '#3fb950', border: 'none', borderRadius: '7px', color: '#fff', fontSize: '10px', cursor: 'pointer'}}>Place Order</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// BROWSER FALLBACK WORKSPACE
+function BrowserWorkspace({ taskMessage }) {
+  const steps = [
+    { text: 'Opening browser', done: true },
+    { text: 'Navigating to site', done: true },
+    { text: 'Filling form', running: true },
+    { text: 'Waiting for response', pending: true }
+  ];
+  
+  return (
+    <div className="panels">
+      <div className="panel" style={{flex: 1}}>
+        <div className="panel-header">
+          <span className="ph-icon">🌐</span><span className="ph-title">Browser Automation</span>
+          <span className="badge ba" style={{marginLeft: 'auto'}}>Fallback mode</span>
+        </div>
+        <div className="panel-body">
+          <div className="browser-bar-2" style={{height: '26px', background: '#0d1117', borderBottom: '0.5px solid #30363d', display: 'flex', alignItems: 'center', padding: '0 8px', gap: '5px'}}>
+            <div className="bdots2" style={{display: 'flex', gap: '3px'}}>
+              <span style={{width: '6px', height: '6px', borderRadius: '50%', background: '#f85149'}}></span>
+              <span style={{width: '6px', height: '6px', borderRadius: '50%', background: '#d29922'}}></span>
+              <span style={{width: '6px', height: '6px', borderRadius: '50%', background: '#3fb950'}}></span>
+            </div>
+            <div className="burl2" style={{flex: 1, background: '#21262d', borderRadius: '3px', padding: '2px 7px', fontSize: '9px', color: '#8b949e', fontFamily: 'monospace'}}>
+              https://example.com
+            </div>
+            <div className="ai-badge2" style={{fontSize: '8px', background: '#7c3aed', color: '#fff', padding: '1px 5px', borderRadius: '3px'}}>AI</div>
+          </div>
+          <div className="steps-list" style={{padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+            {steps.map((s, i) => (
+              <div key={i} className="sl-step" style={{display: 'flex', alignItems: 'center', gap: '7px', fontSize: '10px', color: '#8b949e'}}>
+                <div className={`sl-dot ${s.done ? 'sl-ok' : s.running ? 'sl-run' : 'sl-td'}`} style={{
+                  width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px',
+                  background: s.done ? '#23863622' : s.running ? '#7c3aed22' : '#21262d',
+                  border: `0.5px solid ${s.done ? '#238636' : s.running ? '#7c3aed' : '#30363d'}`,
+                  color: s.done ? '#3fb950' : s.running ? '#d2a8ff' : '#484f58'
+                }}>
+                  {s.done ? '✓' : s.running ? '●' : '○'}
+                </div>
+                <span style={{color: s.done ? '#3fb950' : s.running ? '#d2a8ff' : '#8b949e'}}>{s.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// EXAMPLE TASKS
+const EXAMPLE_TASKS = [
+  { text: 'build a banking app', type: 'code' },
+  { text: 'schedule a meeting tomorrow', type: 'meeting' },
+  { text: 'buy 0.1 BTC now', type: 'trade' },
+  { text: 'book me a shirt for weekend', type: 'shopping' },
+  { text: 'fly me to Goa Friday', type: 'flight' },
+  { text: 'edit my product video', type: 'video' },
+  { text: 'post launch on instagram', type: 'social' },
+  { text: 'renew my car insurance', type: 'browser' }
+];
+
 export default function TaskAdaptiveWorkspace({ messages, input, setInput, send, loading, AgentSteps, UIComponentRenderer, sessionId }) {
   const endRef = useRef(null);
+  const [workspaceState, setWorkspaceState] = useState('home'); // home, thinking, active
+  const [taskType, setTaskType] = useState(null);
+  const [taskMessage, setTaskMessage] = useState('');
+  const [thinkingSteps, setThinkingSteps] = useState([]);
   
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  const hasTask = messages.some(m => m.ui_components && m.ui_components.length > 0);
+  // Detect task type from latest user message
+  useEffect(() => {
+    const lastUserMsg = messages.slice().reverse().find(m => m.role === 'user');
+    if (lastUserMsg && loading) {
+      const detected = detectTaskType(lastUserMsg.text);
+      setTaskType(detected);
+      setTaskMessage(lastUserMsg.text);
+      setWorkspaceState('thinking');
+      
+      // Simulate thinking steps
+      setThinkingSteps([]);
+      const steps = ['Understanding request...', 'Detecting task type...', 'Assembling workspace...'];
+      steps.forEach((step, i) => {
+        setTimeout(() => {
+          setThinkingSteps(prev => [...prev, step]);
+          if (i === steps.length - 1) {
+            setTimeout(() => setWorkspaceState('active'), 500);
+          }
+        }, (i + 1) * 400);
+      });
+    } else if (!loading && messages.length === 0) {
+      setWorkspaceState('home');
+      setTaskType(null);
+    }
+  }, [messages, loading]);
+
+  const hasTask = workspaceState === 'active' || (messages.some(m => m.ui_components && m.ui_components.length > 0));
   const activeTask = messages.slice().reverse().find(m => m.ui_components?.length > 0);
+  const config = taskType ? TASK_CONFIG[taskType] : null;
+
+  const handleExampleClick = (example) => {
+    setInput(example.text);
+    setTimeout(() => send(example.text), 100);
+  };
+
+  const renderWorkspace = () => {
+    switch (taskType) {
+      case 'code': return <CodeWorkspace taskMessage={taskMessage} />;
+      case 'meeting': return <MeetingWorkspace taskMessage={taskMessage} />;
+      case 'trade': return <TradeWorkspace taskMessage={taskMessage} />;
+      case 'shopping': return <ShoppingWorkspace taskMessage={taskMessage} />;
+      case 'browser': return <BrowserWorkspace taskMessage={taskMessage} />;
+      default: return <BrowserWorkspace taskMessage={taskMessage} />;
+    }
+  };
 
   return (
     <div className="app">
       <div className="topbar">
         <div className="logo">S</div>
         <div className="brand">Super Manager</div>
-        <div className="online"><div className="sdot"></div><span id="onlineLabel">Waiting for a task...</span></div>
+        <div className="online">
+          <div className="sdot"></div>
+          <span id="onlineLabel">{workspaceState === 'active' ? `Working: ${taskMessage?.slice(0, 30)}...` : 'Waiting for a task...'}</span>
+        </div>
       </div>
 
       <div className="body">
@@ -79,33 +467,73 @@ export default function TaskAdaptiveWorkspace({ messages, input, setInput, send,
 
         {/* WORKSPACE AREA */}
         <div className="ws-area">
-          {!hasTask && !loading ? (
-            <div id="state-home" className="home" style={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
-              <div className="home-logo" style={{fontSize: '48px', color: '#30363d', marginBottom: '20px'}}>S</div>
+          {workspaceState === 'home' && !hasTask && !loading ? (
+            <div id="state-home" className="home">
+              <div className="home-logo">S</div>
               <div>
-                <div className="home-title" style={{fontSize: '24px', fontWeight: 600, color: '#c9d1d9', textAlign: 'center'}}>Nothing running yet.</div>
-                <div className="home-sub" style={{marginTop: '10px', color: '#8b949e', textAlign: 'center', maxWidth: '400px'}}>Give me any task. A workspace will open automatically — built for exactly that task, with every panel it needs.</div>
+                <div className="home-title">Nothing running yet.</div>
+                <div className="home-sub" style={{marginTop: '5px'}}>Give me any task. A workspace will open automatically — built for exactly that task, with every panel it needs.</div>
+              </div>
+              <div className="task-examples">
+                <div className="ex-label">Click any of these to see how the workspace assembles:</div>
+                <div className="ex-row">
+                  {EXAMPLE_TASKS.slice(0, 3).map((ex, i) => (
+                    <div key={i} className="ex-pill" onClick={() => handleExampleClick(ex)}>{ex.text}</div>
+                  ))}
+                </div>
+                <div className="ex-row">
+                  {EXAMPLE_TASKS.slice(3, 6).map((ex, i) => (
+                    <div key={i} className="ex-pill" onClick={() => handleExampleClick(ex)}>{ex.text}</div>
+                  ))}
+                </div>
+                <div className="ex-row">
+                  {EXAMPLE_TASKS.slice(6).map((ex, i) => (
+                    <div key={i} className="ex-pill" onClick={() => handleExampleClick(ex)}>{ex.text}</div>
+                  ))}
+                </div>
               </div>
             </div>
-          ) : loading && !hasTask ? (
+          ) : workspaceState === 'thinking' || (loading && !hasTask) ? (
              <div id="state-thinking" style={{flex: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '24px'}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#161b22', border: '0.5px solid #30363d', borderRadius: '10px', width: '100%', maxWidth: '420px'}}>
                   <div style={{width: '22px', height: '22px', borderRadius: '6px', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff'}}>S</div>
-                  <div style={{fontSize: '12px', color: '#e6edf3', fontWeight: '500'}} id="thinkLabel">Thinking...</div>
+                  <div style={{fontSize: '12px', color: '#e6edf3', fontWeight: '500'}}>Processing: {taskType ? TASK_CONFIG[taskType]?.label : 'Task'}...</div>
+                </div>
+                <div style={{width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '6px'}}>
+                  {thinkingSteps.map((step, i) => (
+                    <div key={i} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#161b22', border: '0.5px solid #30363d', borderRadius: '6px', fontSize: '11px', color: '#8b949e'}}>
+                      <span style={{color: '#3fb950'}}>✓</span> {step}
+                    </div>
+                  ))}
+                </div>
+                <div style={{width: '100%', maxWidth: '420px'}}>
+                  <div style={{fontSize: '9px', color: '#484f58', marginBottom: '6px'}}>Assembling workspace panels:</div>
+                  <div style={{display: 'flex', gap: '5px', flexWrap: 'wrap'}}>
+                    {config?.badges?.map((b, i) => (
+                      <span key={i} className={`badge ${b.cls}`}>{b.text}</span>
+                    ))}
+                  </div>
                 </div>
              </div>
-          ) : activeTask && activeTask.ui_components && activeTask.ui_components.length > 0 ? (
+          ) : workspaceState === 'active' || hasTask ? (
             <div id="state-active" style={{flex: '1', display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%', background: '#0d1117'}}>
-               <div className="ws-header" style={{padding: '12px 16px', borderBottom: '1px solid #30363d', background: '#161b22', display: 'flex', alignItems: 'center', gap: '10px'}}>
-                  <span style={{fontSize: '14px'}}>⚡</span>
-                  <span className="wsh-label" style={{color: '#c9d1d9', fontSize: '13px', fontWeight: 500}}>Active Task Workspace</span>
-                  <div className="live-ind" style={{marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#3fb950'}}><div className="ldot" style={{width: '6px', height: '6px', borderRadius: '50%', background: '#3fb950', animation: 'pulse 2s infinite'}}></div>Live preview</div>
+               <div className="ws-header">
+                  <span style={{fontSize: '12px'}}>{config?.icon || '⚡'}</span>
+                  <span className="wsh-label">{taskMessage || 'Active Task'}</span>
+                  {config?.badges?.map((b, i) => (
+                    <span key={i} className={`badge ${b.cls}`}>{b.text}</span>
+                  ))}
+                  <div className="live-ind"><div className="ldot"></div>live</div>
                </div>
-               <div className="panels" style={{flex: 1, display: 'flex', overflow: 'hidden'}}>
-                  <div style={{flex: 1, overflowY: 'auto', padding: '20px'}}>
-                    {UIComponentRenderer && <UIComponentRenderer components={activeTask.ui_components} sessionId={sessionId} />}
-                  </div>
-               </div>
+               {activeTask && activeTask.ui_components && activeTask.ui_components.length > 0 ? (
+                 <div className="panels" style={{flex: 1, display: 'flex', overflow: 'hidden'}}>
+                    <div style={{flex: 1, overflowY: 'auto', padding: '20px'}}>
+                      {UIComponentRenderer && <UIComponentRenderer components={activeTask.ui_components} sessionId={sessionId} />}
+                    </div>
+                 </div>
+               ) : (
+                 renderWorkspace()
+               )}
             </div>
           ) : (
             <div style={{flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b949e'}}>
