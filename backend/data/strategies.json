@@ -202,5 +202,47 @@
     "last_used": "2026-03-22T20:19:11.368480",
     "last_feedback": "",
     "created": "2026-03-22T19:14:16.582117"
+  },
+  {
+    "task_type": "create_ecommerce_website",
+    "keywords": [
+      "create",
+      "ecommerce",
+      "website"
+    ],
+    "steps": [
+      {
+        "step_type": "action",
+        "description": "web_search({\"query\": \"best eCommerce website builders 2023\"})",
+        "primitive_or_code": "web_search",
+        "params_template": {
+          "query": "best eCommerce website builders 2023"
+        }
+      },
+      {
+        "step_type": "action",
+        "description": "browse_page({\"url\": \"https://kerbco.com/11-best-ecommerce-website-builders-in-2023/\"})",
+        "primitive_or_code": "browse_page",
+        "params_template": {
+          "url": "https://kerbco.com/11-best-ecommerce-website-builders-in-2023/"
+        }
+      },
+      {
+        "step_type": "action",
+        "description": "browse_page({\"url\": \"https://latenode.com/blog/tools-software-reviews/best-automation-tools/the-best-ecommerce-w)",
+        "primitive_or_code": "browse_page",
+        "params_template": {
+          "url": "https://latenode.com/blog/tools-software-reviews/best-automation-tools/the-best-ecommerce-website-building-platforms-in-2023"
+        }
+      }
+    ],
+    "success_count": 1,
+    "failure_count": 0,
+    "confidence": 0.5,
+    "positive_feedback": 0,
+    "negative_feedback": 0,
+    "last_used": "2026-03-23T06:46:21.264532",
+    "last_feedback": "",
+    "created": "2026-03-23T06:46:21.264542"
   }
 ]

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import "./TaskWorkspace.css";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Settings, Plug, ListTodo, X } from 'lucide-react';
 
 // Task type detection from message
 function detectTaskType(message) {
@@ -32,10 +33,49 @@ const TASK_CONFIG = {
   browser: { icon: '🌐', label: 'Browser', badges: [{ cls: 'ba', text: 'Fallback' }] }
 };
 
-// CODE WORKSPACE
-function CodeWorkspace({ taskMessage }) {
-  const [activeFile, setActiveFile] = useState('server.js');
-  const files = ['server.js', 'middleware.js', 'routes.js', 'models.js', 'App.js', 'package.json'];
+// Extract code from AI response
+function extractCodeFromResponse(messages) {
+  // Look for code blocks in AI responses
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === 'ai' && msg.text) {
+      // Extract code blocks
+      const codeBlockMatch = msg.text.match(/```(?:\w+)?\n([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        return codeBlockMatch[1];
+      }
+      // Check for code in result
+      if (msg.result?.code) {
+        return msg.result.code;
+      }
+    }
+  }
+  return null;
+}
+
+// Extract files structure from AI response
+function extractFilesFromResponse(messages) {
+  const files = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === 'ai' && msg.text) {
+      // Look for file mentions
+      const fileMatches = msg.text.match(/(?:create|file|generated?):\s*[`"]?([a-zA-Z0-9_\-./]+\.[a-zA-Z]+)[`"]?/gi);
+      if (fileMatches) {
+        fileMatches.forEach(m => {
+          const name = m.match(/[a-zA-Z0-9_\-./]+\.[a-zA-Z]+/)?.[0];
+          if (name && !files.includes(name)) files.push(name);
+        });
+      }
+    }
+  }
+  return files.length > 0 ? files : ['index.js', 'package.json', 'README.md'];
+}
+
+// CODE WORKSPACE - Now uses AI-generated code
+function CodeWorkspace({ taskMessage, messages, generatedCode, generatedFiles }) {
+  const [activeFile, setActiveFile] = useState(generatedFiles[0] || 'index.js');
+  const code = generatedCode || `// Waiting for AI to generate code...\n// Ask me to build something specific!`;
   
   return (
     <div className="panels">
@@ -43,14 +83,8 @@ function CodeWorkspace({ taskMessage }) {
       <div className="panel" style={{width: '140px'}}>
         <div className="panel-header"><span className="ph-icon">📁</span><span className="ph-title">Files</span></div>
         <div className="panel-body">
-          <div className="ftree-folder">📁 backend/</div>
-          {files.slice(0, 4).map(f => (
-            <div key={f} className={`ftree-item ${activeFile === f ? 'on' : ''}`} onClick={() => setActiveFile(f)}>
-              📄 {f}
-            </div>
-          ))}
-          <div className="ftree-folder">📁 frontend/</div>
-          {files.slice(4).map(f => (
+          <div className="ftree-folder">📁 src/</div>
+          {generatedFiles.map(f => (
             <div key={f} className={`ftree-item ${activeFile === f ? 'on' : ''}`} onClick={() => setActiveFile(f)}>
               📄 {f}
             </div>
@@ -63,20 +97,11 @@ function CodeWorkspace({ taskMessage }) {
         <div className="panel-header">
           <span className="ph-icon">✏️</span>
           <span className="ph-title">{activeFile}</span>
-          <span className="badge bp" style={{fontSize: '8px'}}>active</span>
+          <span className="badge bp" style={{fontSize: '8px'}}>AI Generated</span>
         </div>
         <div className="panel-body" style={{display: 'flex', flexDirection: 'column'}}>
-          <div className="code-editor" style={{flex: 1, fontFamily: 'monospace', fontSize: '11px', lineHeight: 1.7, padding: '12px'}}>
-            <pre style={{margin: 0}}>
-              <span className="cm">// Auto-generated code for your app</span>{'\n'}
-              <span className="kw">const</span> <span className="nm">express</span> = <span className="fn">require</span>(<span className="str">'express'</span>);{'\n'}
-              <span className="kw">const</span> <span className="nm">helmet</span>  = <span className="fn">require</span>(<span className="str">'helmet'</span>);{'\n'}
-              <span className="kw">const</span> <span className="nm">cors</span>    = <span className="fn">require</span>(<span className="str">'cors'</span>);{'\n'}
-              <span className="kw">const</span> <span className="nm">app</span> = <span className="fn">express</span>();{'\n'}
-              <span className="nm">app</span>.<span className="fn">use</span>(<span className="fn">helmet</span>());{'\n'}
-              <span className="nm">app</span>.<span className="fn">use</span>(<span className="fn">cors</span>({'{'} <span className="nm">origin</span>: process.env.<span className="nm">ORIGINS</span> {'}'}));{'\n'}
-              <span className="nm">app</span>.<span className="fn">listen</span>(<span className="str">3001</span>);
-            </pre>
+          <div className="code-editor" style={{flex: 1, fontFamily: 'monospace', fontSize: '11px', lineHeight: 1.7, padding: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>
+            {code}
           </div>
           <div className="term" style={{borderTop: '0.5px solid #30363d', padding: '8px 12px', background: '#010409', fontFamily: 'monospace', fontSize: '10px'}}>
             <div><span className="tok">✔ npm install done</span></div>
@@ -541,12 +566,23 @@ const EXAMPLE_TASKS = [
   { text: 'renew my car insurance', type: 'browser' }
 ];
 
-export default function TaskAdaptiveWorkspace({ messages, input, setInput, send, loading, AgentSteps, UIComponentRenderer, sessionId }) {
+export default function TaskAdaptiveWorkspace({ 
+  messages, input, setInput, send, loading, AgentSteps, UIComponentRenderer, sessionId,
+  // New props for Settings, Integrations, TaskPanel
+  showSettings, setShowSettings,
+  showIntegrations, setShowIntegrations,
+  showTaskPanel, setShowTaskPanel,
+  SettingsPanel, IntegrationsPanel, TaskPanelComponent
+}) {
   const endRef = useRef(null);
   const [workspaceState, setWorkspaceState] = useState('home'); // home, thinking, active
   const [taskType, setTaskType] = useState(null);
   const [taskMessage, setTaskMessage] = useState('');
   const [thinkingSteps, setThinkingSteps] = useState([]);
+  
+  // Extract AI-generated code and files from messages
+  const generatedCode = extractCodeFromResponse(messages);
+  const generatedFiles = extractFilesFromResponse(messages);
   
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -589,7 +625,7 @@ export default function TaskAdaptiveWorkspace({ messages, input, setInput, send,
 
   const renderWorkspace = () => {
     switch (taskType) {
-      case 'code': return <CodeWorkspace taskMessage={taskMessage} />;
+      case 'code': return <CodeWorkspace taskMessage={taskMessage} messages={messages} generatedCode={generatedCode} generatedFiles={generatedFiles} />;
       case 'meeting': return <MeetingWorkspace taskMessage={taskMessage} />;
       case 'trade': return <TradeWorkspace taskMessage={taskMessage} />;
       case 'shopping': return <ShoppingWorkspace taskMessage={taskMessage} />;
@@ -610,6 +646,33 @@ export default function TaskAdaptiveWorkspace({ messages, input, setInput, send,
         <div className="online">
           <div className="sdot"></div>
           <span id="onlineLabel">{workspaceState === 'active' ? `Working: ${taskMessage?.slice(0, 30)}...` : 'Waiting for a task...'}</span>
+        </div>
+        {/* Toolbar buttons */}
+        <div style={{display: 'flex', gap: '8px', marginLeft: 'auto'}}>
+          <button 
+            onClick={() => setShowTaskPanel && setShowTaskPanel(!showTaskPanel)}
+            className="toolbar-btn"
+            style={{background: showTaskPanel ? '#7c3aed22' : 'transparent', border: '0.5px solid #30363d', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: '#8b949e', fontSize: '10px'}}
+            title="Tasks"
+          >
+            <ListTodo size={14} /> Tasks
+          </button>
+          <button 
+            onClick={() => setShowIntegrations && setShowIntegrations(!showIntegrations)}
+            className="toolbar-btn"
+            style={{background: showIntegrations ? '#7c3aed22' : 'transparent', border: '0.5px solid #30363d', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: '#8b949e', fontSize: '10px'}}
+            title="Integrations"
+          >
+            <Plug size={14} /> Connect
+          </button>
+          <button 
+            onClick={() => setShowSettings && setShowSettings(!showSettings)}
+            className="toolbar-btn"
+            style={{background: showSettings ? '#7c3aed22' : 'transparent', border: '0.5px solid #30363d', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: '#8b949e', fontSize: '10px'}}
+            title="Settings"
+          >
+            <Settings size={14} />
+          </button>
         </div>
       </div>
 
@@ -745,7 +808,50 @@ export default function TaskAdaptiveWorkspace({ messages, input, setInput, send,
             </div>
           )}
         </div>
+        
+        {/* Task Panel (Right sidebar) */}
+        {showTaskPanel && TaskPanelComponent && (
+          <div className="task-panel" style={{width: '220px', borderLeft: '0.5px solid #30363d', background: '#0d1117', display: 'flex', flexDirection: 'column'}}>
+            <div style={{padding: '10px 12px', borderBottom: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+              <span style={{fontSize: '11px', color: '#c9d1d9', fontWeight: 500}}>Active Tasks</span>
+              <button onClick={() => setShowTaskPanel(false)} style={{background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', padding: '2px'}}><X size={14} /></button>
+            </div>
+            <div style={{flex: 1, overflow: 'auto'}}>
+              <TaskPanelComponent />
+            </div>
+          </div>
+        )}
       </div>
+      
+      {/* Settings Modal */}
+      {showSettings && SettingsPanel && (
+        <div className="modal-overlay" style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+          <div style={{background: '#161b22', borderRadius: '12px', border: '0.5px solid #30363d', width: '90%', maxWidth: '600px', maxHeight: '80vh', overflow: 'auto'}}>
+            <div style={{padding: '16px', borderBottom: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+              <span style={{fontSize: '14px', color: '#e6edf3', fontWeight: 600}}>Settings</span>
+              <button onClick={() => setShowSettings(false)} style={{background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer'}}><X size={18} /></button>
+            </div>
+            <div style={{padding: '16px'}}>
+              <SettingsPanel onClose={() => setShowSettings(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Integrations Modal */}
+      {showIntegrations && IntegrationsPanel && (
+        <div className="modal-overlay" style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+          <div style={{background: '#161b22', borderRadius: '12px', border: '0.5px solid #30363d', width: '90%', maxWidth: '700px', maxHeight: '80vh', overflow: 'auto'}}>
+            <div style={{padding: '16px', borderBottom: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+              <span style={{fontSize: '14px', color: '#e6edf3', fontWeight: 600}}>Connect Integrations</span>
+              <button onClick={() => setShowIntegrations(false)} style={{background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer'}}><X size={18} /></button>
+            </div>
+            <div style={{padding: '16px'}}>
+              <IntegrationsPanel onClose={() => setShowIntegrations(false)} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

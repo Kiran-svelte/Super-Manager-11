@@ -155,6 +155,16 @@ function App() {
       AgentSteps={AgentSteps}
       UIComponentRenderer={UIComponentRenderer}
       sessionId={sessionId}
+      // Settings, Integrations, TaskPanel props
+      showSettings={showSettings}
+      setShowSettings={setShowSettings}
+      showIntegrations={showIntegrations}
+      setShowIntegrations={setShowIntegrations}
+      showTaskPanel={showTaskPanel}
+      setShowTaskPanel={setShowTaskPanel}
+      SettingsPanel={AISettings}
+      IntegrationsPanel={IntegrationsHub}
+      TaskPanelComponent={() => <TaskPanel refreshTrigger={taskRefreshTrigger} />}
     />
   )
 }
