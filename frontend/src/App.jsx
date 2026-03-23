@@ -78,11 +78,37 @@ function App() {
   const endRef = useRef(null)
   const inputRef = useRef(null)
 
+  // Initialize userId from localStorage
   useEffect(() => {
     let id = localStorage.getItem('super_manager_user_id')
     if (!id) { id = 'user_' + Math.random().toString(36).substring(2, 15); localStorage.setItem('super_manager_user_id', id) }
     setUserId(id)
   }, [])
+
+  // Load chat history from localStorage on mount
+  useEffect(() => {
+    const savedSession = localStorage.getItem('super_manager_session_id')
+    const savedMessages = localStorage.getItem('super_manager_messages')
+    if (savedSession) setSessionId(savedSession)
+    if (savedMessages) {
+      try {
+        const parsed = JSON.parse(savedMessages)
+        // Restore timestamps as Date objects
+        const restored = parsed.map(m => ({ ...m, timestamp: new Date(m.timestamp) }))
+        setMessages(restored)
+      } catch (e) { console.error('Failed to restore messages:', e) }
+    }
+  }, [])
+
+  // Save chat to localStorage when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('super_manager_messages', JSON.stringify(messages))
+    }
+    if (sessionId) {
+      localStorage.setItem('super_manager_session_id', sessionId)
+    }
+  }, [messages, sessionId])
 
   useEffect(() => {
     if (!userId) return

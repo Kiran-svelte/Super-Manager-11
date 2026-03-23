@@ -52,6 +52,7 @@
 .bp{background:#7c3aed22;border-color:#7c3aed;color:#d2a8ff;}
 .br{background:#f8514922;border-color:#f85149;color:#f85149;}
 .ldot{width:5px;height:5px;border-radius:50%;background:#3fb950;animation:lp 1.5s infinite;}
+.ldot-off{width:5px;height:5px;border-radius:50%;background:#484f58;}
 @keyframes lp{0%,100%{opacity:1}50%{opacity:.5}}
 .live-ind{display:flex;align-items:center;gap:4px;font-size:9px;color:#3fb950;margin-left:auto;}
 
@@ -101,7 +102,7 @@
 .code-editor{padding:8px 12px;font-family:var(--font-mono);font-size:10px;line-height:1.7;color:#c9d1d9;}
 .kw{color:#ff7b72}.fn{color:#d2a8ff}.str{color:#a5d6ff}.cm{color:#8b949e;font-style:italic}.nm{color:#ffa657}
 .term{background:#010409;padding:7px 12px;font-family:var(--font-mono);font-size:10px;line-height:1.7;}
-.tp2{color:#7c3aed}.tc{color:#e6edf3}.to{color:#8b949e}.tok{color:#3fb950}
+.tp2{color:#7c3aed}.tc{color:#e6edf3}.to{color:#8b949e}.tok{color:#3fb950}.terr{color:#f85149}
 .tcur{display:inline-block;width:6px;height:11px;background:#e6edf3;animation:blink 1s infinite;vertical-align:text-bottom;}
 @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
 

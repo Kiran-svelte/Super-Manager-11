@@ -33,33 +33,74 @@ const TASK_CONFIG = {
   browser: { icon: '🌐', label: 'Browser', badges: [{ cls: 'ba', text: 'Fallback' }] }
 };
 
-// Extract code from AI response
+// Extract code from AI response - check steps data, markdown, and result
 function extractCodeFromResponse(messages) {
-  // Look for code blocks in AI responses
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
-    if (msg.role === 'ai' && msg.text) {
-      // Extract code blocks
-      const codeBlockMatch = msg.text.match(/```(?:\w+)?\n([\s\S]*?)```/);
-      if (codeBlockMatch) {
-        return codeBlockMatch[1];
+    if (msg.role === 'ai') {
+      // 1. Check steps for code_exec events
+      if (msg.steps && Array.isArray(msg.steps)) {
+        for (let j = msg.steps.length - 1; j >= 0; j--) {
+          const step = msg.steps[j];
+          if (step.type === 'code_exec' && step.data?.code) {
+            return { code: step.data.code, language: detectLanguage(step.data.code) };
+          }
+          // Also check confirm_needed for code
+          if (step.type === 'confirm_needed' && step.data?.params?.code) {
+            return { code: step.data.params.code, language: detectLanguage(step.data.params.code) };
+          }
+          if (step.type === 'confirm_needed' && step.data?.code) {
+            return { code: step.data.code, language: detectLanguage(step.data.code) };
+          }
+        }
       }
-      // Check for code in result
+      
+      // 2. Check markdown code blocks in message text
+      if (msg.text) {
+        const codeBlockMatch = msg.text.match(/```(\w+)?\n([\s\S]*?)```/);
+        if (codeBlockMatch) {
+          return { code: codeBlockMatch[2], language: codeBlockMatch[1] || 'javascript' };
+        }
+      }
+      
+      // 3. Check result object
       if (msg.result?.code) {
-        return msg.result.code;
+        return { code: msg.result.code, language: detectLanguage(msg.result.code) };
       }
     }
   }
   return null;
 }
 
+// Detect programming language from code
+function detectLanguage(code) {
+  if (!code) return 'text';
+  if (code.includes('const ') || code.includes('require(') || code.includes('import ') && code.includes('from ')) return 'javascript';
+  if (code.includes('def ') || code.includes('import ') || code.includes('from flask')) return 'python';
+  if (code.includes('<html') || code.includes('<!DOCTYPE')) return 'html';
+  if (code.includes('{') && code.includes(':') && code.includes(';')) return 'css';
+  return 'javascript';
+}
+
 // Extract files structure from AI response
-function extractFilesFromResponse(messages) {
+function extractFilesFromResponse(messages, codeData) {
   const files = [];
+  
+  // If we detected language, suggest appropriate files
+  if (codeData) {
+    if (codeData.language === 'javascript') {
+      files.push('server.js', 'package.json');
+    } else if (codeData.language === 'python') {
+      files.push('app.py', 'requirements.txt');
+    } else if (codeData.language === 'html') {
+      files.push('index.html', 'style.css');
+    }
+  }
+  
+  // Look for explicit file mentions
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.role === 'ai' && msg.text) {
-      // Look for file mentions
       const fileMatches = msg.text.match(/(?:create|file|generated?):\s*[`"]?([a-zA-Z0-9_\-./]+\.[a-zA-Z]+)[`"]?/gi);
       if (fileMatches) {
         fileMatches.forEach(m => {
@@ -69,13 +110,37 @@ function extractFilesFromResponse(messages) {
       }
     }
   }
+  
   return files.length > 0 ? files : ['index.js', 'package.json', 'README.md'];
 }
 
-// CODE WORKSPACE - Now uses AI-generated code
+// CODE WORKSPACE - Now uses AI-generated code with real terminal output
 function CodeWorkspace({ taskMessage, messages, generatedCode, generatedFiles }) {
   const [activeFile, setActiveFile] = useState(generatedFiles[0] || 'index.js');
-  const code = generatedCode || `// Waiting for AI to generate code...\n// Ask me to build something specific!`;
+  
+  // Extract terminal output from steps
+  const terminalOutput = [];
+  const lastAIMsg = messages.slice().reverse().find(m => m.role === 'ai' && m.steps);
+  if (lastAIMsg?.steps) {
+    lastAIMsg.steps.forEach(step => {
+      if (step.type === 'code_exec') {
+        terminalOutput.push({ type: 'cmd', text: '$ Executing code...' });
+      } else if (step.type === 'action_result') {
+        const success = step.data?._meta?.success;
+        const error = step.data?._meta?.error;
+        if (success) {
+          terminalOutput.push({ type: 'ok', text: `✔ ${step.content}` });
+        } else if (error) {
+          terminalOutput.push({ type: 'err', text: `✗ ${error}` });
+        } else {
+          terminalOutput.push({ type: 'info', text: step.content });
+        }
+      }
+    });
+  }
+  
+  const code = generatedCode?.code || `// Waiting for AI to generate code...\n// Ask me to build something specific!`;
+  const language = generatedCode?.language || 'javascript';
   
   return (
     <div className="panels">
@@ -97,48 +162,69 @@ function CodeWorkspace({ taskMessage, messages, generatedCode, generatedFiles })
         <div className="panel-header">
           <span className="ph-icon">✏️</span>
           <span className="ph-title">{activeFile}</span>
-          <span className="badge bp" style={{fontSize: '8px'}}>AI Generated</span>
+          <span className="badge bp" style={{fontSize: '8px'}}>{generatedCode ? 'AI Generated' : 'Waiting'}</span>
+          <span className="badge bg" style={{fontSize: '8px', marginLeft: '4px'}}>{language}</span>
         </div>
         <div className="panel-body" style={{display: 'flex', flexDirection: 'column'}}>
-          <div className="code-editor" style={{flex: 1, fontFamily: 'monospace', fontSize: '11px', lineHeight: 1.7, padding: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>
+          <div className="code-editor" style={{flex: 1, fontFamily: 'monospace', fontSize: '11px', lineHeight: 1.7, padding: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflow: 'auto', maxHeight: '300px'}}>
             {code}
           </div>
-          <div className="term" style={{borderTop: '0.5px solid #30363d', padding: '8px 12px', background: '#010409', fontFamily: 'monospace', fontSize: '10px'}}>
-            <div><span className="tok">✔ npm install done</span></div>
-            <div><span className="tp2">$ </span><span className="tc">node server.js</span></div>
-            <div><span className="tok">✔ Server running :3001</span></div>
-            <div><span className="tp2">$ </span><span className="tcur"></span></div>
+          <div className="term" style={{borderTop: '0.5px solid #30363d', padding: '8px 12px', background: '#010409', fontFamily: 'monospace', fontSize: '10px', minHeight: '80px', maxHeight: '120px', overflow: 'auto'}}>
+            {terminalOutput.length > 0 ? (
+              terminalOutput.map((line, i) => (
+                <div key={i}>
+                  <span className={line.type === 'ok' ? 'tok' : line.type === 'err' ? 'terr' : line.type === 'cmd' ? 'tc' : 'tp2'}>
+                    {line.text}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <>
+                <div><span className="tp2">$ </span><span className="tc">Ready for execution</span></div>
+                <div><span className="tp2">$ </span><span className="tcur"></span></div>
+              </>
+            )}
           </div>
         </div>
       </div>
       
-      {/* Live Preview */}
+      {/* Live Preview - Show based on language */}
       <div className="panel" style={{flex: 1, minWidth: 0}}>
         <div className="panel-header">
           <span className="ph-icon">👁️</span>
-          <span className="ph-title">Live preview — localhost:3000</span>
-          <div style={{display: 'flex', alignItems: 'center', gap: '3px'}}><div className="ldot"></div><span style={{fontSize: '8px', color: '#3fb950'}}>running</span></div>
+          <span className="ph-title">Preview</span>
+          <div style={{display: 'flex', alignItems: 'center', gap: '3px', marginLeft: 'auto'}}>
+            <div className={generatedCode ? "ldot" : "ldot-off"}></div>
+            <span style={{fontSize: '8px', color: generatedCode ? '#3fb950' : '#8b949e'}}>{generatedCode ? 'ready' : 'waiting'}</span>
+          </div>
         </div>
         <div className="panel-body">
-          <div className="bank-preview" style={{background: '#f0f4ff', minHeight: '100%', padding: 0}}>
-            <div className="bnav" style={{background: '#1a1a3e', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-              <div className="blogo" style={{fontSize: '11px', color: '#fff', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '5px'}}>
-                <div style={{width: '18px', height: '18px', borderRadius: '5px', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff'}}>M</div>
-                My App
+          {generatedCode ? (
+            <div style={{padding: '16px', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px'}}>
+              <div style={{background: '#161b22', border: '0.5px solid #30363d', borderRadius: '8px', padding: '12px'}}>
+                <div style={{fontSize: '10px', color: '#8b949e', marginBottom: '8px'}}>Generated {language} code ready</div>
+                <div style={{fontSize: '11px', color: '#e6edf3'}}>
+                  {language === 'javascript' && '🚀 Express server ready to run on port 3000'}
+                  {language === 'python' && '🐍 Python app ready to run'}
+                  {language === 'html' && '🌐 HTML page ready to preview'}
+                </div>
+              </div>
+              <div style={{background: '#0d419d22', border: '0.5px solid #1f6feb', borderRadius: '8px', padding: '12px'}}>
+                <div style={{fontSize: '10px', color: '#58a6ff', marginBottom: '4px'}}>💡 Next steps:</div>
+                <div style={{fontSize: '10px', color: '#8b949e'}}>
+                  1. Copy the code to your project<br/>
+                  2. Install dependencies<br/>
+                  3. Run the application
+                </div>
               </div>
             </div>
-            <div style={{padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
-              <div style={{background: '#1a1a3e', borderRadius: '8px', padding: '10px', color: '#fff'}}>
-                <div style={{fontSize: '8px', color: '#a0a8c8', textTransform: 'uppercase'}}>Welcome</div>
-                <div style={{fontSize: '18px', fontWeight: 500, margin: '2px 0'}}>Hello World</div>
-              </div>
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px'}}>
-                {['Home', 'About', 'Contact', 'Blog'].map(item => (
-                  <div key={item} style={{background: '#fff', borderRadius: '6px', padding: '6px 3px', textAlign: 'center', fontSize: '8px', color: '#555'}}>{item}</div>
-                ))}
-              </div>
+          ) : (
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8b949e', fontSize: '11px', flexDirection: 'column', gap: '8px'}}>
+              <div style={{fontSize: '24px'}}>💻</div>
+              <div>Ask AI to generate code</div>
+              <div style={{fontSize: '10px', color: '#484f58'}}>e.g., "build a todo app" or "create a REST API"</div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -582,7 +668,7 @@ export default function TaskAdaptiveWorkspace({
   
   // Extract AI-generated code and files from messages
   const generatedCode = extractCodeFromResponse(messages);
-  const generatedFiles = extractFilesFromResponse(messages);
+  const generatedFiles = extractFilesFromResponse(messages, generatedCode);
   
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -691,7 +777,16 @@ export default function TaskAdaptiveWorkspace({
                     {m.role === 'user' ? (
                        m.text
                     ) : (
-                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text || ''}</ReactMarkdown>
+                       <ReactMarkdown 
+                         remarkPlugins={[remarkGfm]}
+                         components={{
+                           a: ({node, ...props}) => (
+                             <a {...props} target="_blank" rel="noopener noreferrer" />
+                           )
+                         }}
+                       >
+                         {m.text || ''}
+                       </ReactMarkdown>
                     )}
                 </div>
                 {m.steps && m.steps.length > 0 && AgentSteps && (
@@ -840,13 +935,13 @@ export default function TaskAdaptiveWorkspace({
       
       {/* Integrations Modal */}
       {showIntegrations && IntegrationsPanel && (
-        <div className="modal-overlay" style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
-          <div style={{background: '#161b22', borderRadius: '12px', border: '0.5px solid #30363d', width: '90%', maxWidth: '700px', maxHeight: '80vh', overflow: 'auto'}}>
-            <div style={{padding: '16px', borderBottom: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+        <div className="modal-overlay" style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px'}}>
+          <div style={{background: '#161b22', borderRadius: '12px', border: '0.5px solid #30363d', width: '90%', maxWidth: '800px', maxHeight: '85vh', display: 'flex', flexDirection: 'column'}}>
+            <div style={{padding: '16px', borderBottom: '0.5px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0}}>
               <span style={{fontSize: '14px', color: '#e6edf3', fontWeight: 600}}>Connect Integrations</span>
               <button onClick={() => setShowIntegrations(false)} style={{background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer'}}><X size={18} /></button>
             </div>
-            <div style={{padding: '16px'}}>
+            <div style={{flex: 1, overflow: 'auto', padding: '16px'}}>
               <IntegrationsPanel onClose={() => setShowIntegrations(false)} />
             </div>
           </div>
